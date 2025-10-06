@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reservas y Pagos - Olas y Raíces</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="border-b border-gray-200 bg-white shadow-sm">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <h1 class="text-2xl font-bold text-blue-600">
+                        <i class="fas fa-calendar-check"></i> Olas y Raíces - Reservas
+                    </h1>
+                    <a href="/usuarios.html" class="inline-flex items-center rounded-lg border border-pink-300 bg-pink-50 px-3 py-2 text-sm text-pink-800 hover:bg-pink-100">
+                        <i class="fas fa-users-cog mr-2"></i> Usuarios
+                    </a>
+                    <a href="/pagos-proveedores.html" class="inline-flex items-center rounded-lg border border-orange-300 bg-orange-50 px-3 py-2 text-sm text-orange-800 hover:bg-orange-100">
+                        <i class="fas fa-money-bill-wave mr-2"></i> Pagos Proveedores
+                    </a>
+                    <a href="/proveedores" class="inline-flex items-center rounded-lg border border-purple-300 bg-purple-50 px-3 py-2 text-sm text-purple-800 hover:bg-purple-100">
+                        <i class="fas fa-building mr-2"></i> Proveedores
+                    </a>
+                    <a href="/hotelpedia" class="inline-flex items-center rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 hover:bg-emerald-100">
+                        <i class="fas fa-hotel mr-2"></i> Hotelpedia
+                    </a>
+                    <a href="/promos" class="inline-flex items-center rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-sm text-blue-800 hover:bg-blue-100">
+                        <i class="fas fa-tag mr-2"></i> Promos
+                    </a>
+                    <a href="/" class="inline-flex items-center rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                        <i class="fas fa-comments mr-2"></i> Chat
+                    </a>
+                </div>
+                <button onclick="cerrarSesion()" class="inline-flex items-center rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 hover:bg-red-100">
+                    <i class="fas fa-sign-out-alt mr-2"></i> Cerrar Sesión
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container mx-auto px-4 py-6">
+        <!-- Tabs -->
+        <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div class="flex border-b border-gray-200">
+                <button onclick="cambiarTab('reservas')" id="tab-reservas" class="border-b-2 border-blue-600 px-6 py-3 font-semibold text-blue-600">
+                    <i class="fas fa-calendar-check mr-2"></i>Reservas
+                </button>
+                <button onclick="cambiarTab('pagos')" id="tab-pagos" class="border-b-2 border-transparent px-6 py-3 font-semibold text-gray-600 hover:text-blue-600">
+                    <i class="fas fa-money-bill-wave mr-2"></i>Pagos Pendientes
+                </button>
+                <button onclick="cambiarTab('nueva')" id="tab-nueva" class="border-b-2 border-transparent px-6 py-3 font-semibold text-gray-600 hover:text-blue-600">
+                    <i class="fas fa-plus-circle mr-2"></i>Nueva Reserva
+                </button>
+            </div>
+
+            <!-- Tab Content: Reservas -->
+            <div id="content-reservas" class="p-6">
+                <!-- Filtros -->
+                <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
+                    <select id="filtro-estado" onchange="cargarReservas()" class="rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                        <option value="">Todos los estados</option>
+                        <option value="COTIZADA">Cotizada</option>
+                        <option value="APARTADA">Apartada</option>
+                        <option value="CONFIRMADA">Confirmada</option>
+                        <option value="LIQUIDADA">Liquidada</option>
+                        <option value="VIAJADA">Viajada</option>
+                        <option value="CERRADA">Cerrada</option>
+                        <option value="CANCELADA">Cancelada</option>
+                    </select>
+                    <input type="date" id="filtro-desde" onchange="cargarReservas()" class="rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                    <input type="date" id="filtro-hasta" onchange="cargarReservas()" class="rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                    <button onclick="cargarReservas()" class="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white shadow-sm hover:bg-blue-700">
+                        <i class="fas fa-search mr-2"></i>Buscar
+                    </button>
+                </div>
+
+                <!-- Lista de Reservas -->
+                <div id="lista-reservas" class="space-y-4">
+                    <div class="py-10 text-center text-gray-500">
+                        <i class="fas fa-spinner fa-spin text-3xl text-blue-600"></i>
+                        <p class="mt-2">Cargando reservas...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Content: Pagos Pendientes -->
+            <div id="content-pagos" class="hidden p-6">
+                <div id="lista-pagos-pendientes" class="space-y-4">
+                    <div class="py-10 text-center text-gray-500">
+                        <i class="fas fa-spinner fa-spin text-3xl text-blue-600"></i>
+                        <p class="mt-2">Cargando pagos pendientes...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Content: Nueva Reserva -->
+            <div id="content-nueva" class="hidden p-6">
+                <form id="form-nueva-reserva" class="space-y-6">
+                    <!-- Botón Auto-rellenar -->
+                    <div class="flex justify-end">
+                        <button type="button" id="btn_autorellenar" class="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-md hover:from-purple-700 hover:to-blue-700">
+                            <i class="fas fa-file-import"></i>
+                            Auto-rellenar desde cotización
+                        </button>
+                    </div>
+
+                    <!-- Datos del Cliente -->
+                    <div class="rounded-xl border border-gray-200 bg-gradient-to-br from-blue-50 to-white p-4">
+                        <h3 class="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
+                            <i class="fas fa-user text-blue-600"></i> Datos del Cliente
+                        </h3>
+                        <div class="grid gap-4 md:grid-cols-2">
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-gray-700">Cliente *</label>
+                                <select id="contacto_id" required class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                                    <option value="">Cargando clientes...</option>
+                                </select>
+                            </div>
+                            <div id="vendedor_container" style="display:none">
+                                <label class="mb-1 block text-sm font-medium text-gray-700">Vendedor Asignado</label>
+                                <select id="vendedor_id" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                                    <option value="">Cargando vendedores...</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Folios -->
+                    <div class="rounded-xl border border-gray-200 bg-white p-4">
+                        <h3 class="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
+                            <i class="fas fa-tag text-purple-600"></i> Folios
+                        </h3>
+                        <div class="grid gap-4 md:grid-cols-2">
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-gray-700">Folio Interno</label>
+                                <input type="text" id="folio_interno" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                                <p class="mt-1 text-xs text-gray-500">Se genera automáticamente</p>
+                            </div>
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-gray-700">Folio Proveedor (opcional)</label>
+                                <input type="text" id="folio_proveedor" placeholder="Agregar después de reservar" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Datos del Viaje -->
+                    <div class="rounded-xl border border-gray-200 bg-white p-4">
+                        <h3 class="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
+                            <i class="fas fa-globe text-green-600"></i> Datos del Viaje
+                        </h3>
+                        <div class="grid gap-4 md:grid-cols-2">
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-gray-700">Destino *</label>
+                                <input type="text" id="destino" required class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                            </div>
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-gray-700">Método de Pago *</label>
+                                <select id="metodo_pago" required class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                                    <option value="EFECTIVO">💵 EFECTIVO</option>
+                                    <option value="TRANSFERENCIA">🏦 TRANSFERENCIA</option>
+                                    <option value="TARJETA">💳 TARJETA</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-gray-700">Check-in</label>
+                                <input type="date" id="check_in" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                            </div>
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-gray-700">Check-out</label>
+                                <input type="date" id="check_out" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pasajeros -->
+                    <div class="rounded-xl border border-gray-200 bg-white p-4">
+                        <h3 class="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
+                            <i class="fas fa-users text-orange-600"></i> Pasajeros
+                        </h3>
+                        <div class="mb-4">
+                            <div class="mb-2 flex items-center justify-between">
+                                <label class="text-sm font-medium text-gray-700">Adultos</label>
+                                <button type="button" onclick="agregarAdulto()" class="rounded-lg bg-green-600 px-3 py-1 text-xs text-white hover:bg-green-700">
+                                    + Agregar Adulto
+                                </button>
+                            </div>
+                            <div id="adultos_container" class="space-y-2"></div>
+                        </div>
+                        <div>
+                            <div class="mb-2 flex items-center justify-between">
+                                <label class="text-sm font-medium text-gray-700">Menores</label>
+                                <button type="button" onclick="agregarMenor()" class="rounded-lg bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700">
+                                    + Agregar Menor
+                                </button>
+                            </div>
+                            <div id="menores_container" class="space-y-2"></div>
+                        </div>
+                    </div>
+
+                    <!-- Ítem Inicial -->
+                    <div class="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4">
+                        <h3 class="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
+                            <i class="fas fa-plus text-indigo-600"></i> Ítem Inicial (Opcional)
+                        </h3>
+                        <div class="grid gap-4 md:grid-cols-2">
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-gray-700">Proveedor</label>
+                                <select id="proveedor_id" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                                    <option value="">Cargando proveedores...</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-gray-700">Tipo</label>
+                                <select id="tipo_item" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                                    <option value="">(sin ítem por ahora)</option>
+                                    <option value="HOTEL">🏨 HOTEL</option>
+                                    <option value="TRANSPORTE">🚌 TRANSPORTE (Camión)</option>
+                                    <option value="VUELO">✈️ VUELO</option>
+                                    <option value="TRASLADO">🚐 TRASLADO</option>
+                                    <option value="HOTEL_TRANSPORTE">🏨🚌 HOTEL + TRANSPORTE</option>
+                                    <option value="HOTEL_VUELO_TRASLADO">🏨✈️🚐 HOTEL + VUELO + TRASLADO</option>
+                                    <option value="PUEBLO_MAGICO">🏘️ PUEBLO MÁGICO</option>
+                                    <option value="OTRO">📦 OTRO</option>
+                                </select>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="mb-1 block text-sm font-medium text-gray-700">Descripción</label>
+                                <input type="text" id="descripcion_item" placeholder="Ej: Hotel X 3 noches AI" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                            </div>
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-gray-700">Precio Neto</label>
+                                <input type="number" step="0.01" id="precio_neto" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                            </div>
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-gray-700">Precio Cliente</label>
+                                <input type="number" step="0.01" id="precio_cliente" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Botones -->
+                    <div class="flex justify-end gap-3">
+                        <button type="button" onclick="limpiarFormulario()" class="rounded-lg border border-gray-300 px-6 py-2 font-medium text-gray-700 hover:bg-gray-50">
+                            Limpiar
+                        </button>
+                        <button type="submit" class="rounded-lg bg-blue-600 px-6 py-2 font-medium text-white shadow-sm hover:bg-blue-700">
+                            <i class="fas fa-save mr-2"></i>Guardar Reserva
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+        const userType = sessionStorage.getItem('userType');
+        const userId = sessionStorage.getItem('userId');
+
+        if (!token) {
+            window.location.href = '/login';
+        }
+
+        // Ocultar enlaces según rol
+        document.addEventListener('DOMContentLoaded', () => {
+            const esAdminOGerente = userType === 'admin' || userType === 'gerente';
+
+            // Los operadores no ven: Usuarios, Pagos Proveedores, Proveedores
+            if (!esAdminOGerente) {
+                const enlacesAdmin = [
+                    'a[href="/usuarios.html"]',
+                    'a[href="/pagos-proveedores.html"]',
+                    'a[href="/proveedores"]'
+                ];
+
+                enlacesAdmin.forEach(selector => {
+                    const elemento = document.querySelector(selector);
+                    if (elemento) elemento.style.display = 'none';
+                });
+            }
+        });
+
+        const authHeaders = () => ({
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        });
+
+        // Gestión de pasajeros
+        window.pasajerosAdultos = [{ nombre: '', edad: '' }, { nombre: '', edad: '' }];
+        window.pasajerosMenores = [];
+
+        function agregarAdulto() {
+            window.pasajerosAdultos.push({ nombre: '', edad: '' });
+            renderizarPasajeros();
+        }
+
+        function agregarMenor() {
+            window.pasajerosMenores.push({ nombre: '', edad: '' });
+            renderizarPasajeros();
+        }
+
+        function eliminarAdulto(index) {
+            window.pasajerosAdultos.splice(index, 1);
+            renderizarPasajeros();
+        }
+
+        function eliminarMenor(index) {
+            window.pasajerosMenores.splice(index, 1);
+            renderizarPasajeros();
+        }
+
+        function renderizarPasajeros() {
+            const adultosContainer = document.getElementById('adultos_container');
+            const menoresContainer = document.getElementById('menores_container');
+
+            adultosContainer.innerHTML = window.pasajerosAdultos.map((p, i) => `
+                <div class="flex gap-2">
+                    <input type="text" placeholder="Nombre completo" value="${p.nombre}"
+                           onchange="window.pasajerosAdultos[${i}].nombre = this.value"
+                           class="flex-1 rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                    <input type="number" placeholder="Edad" value="${p.edad}" min="18" max="99"
+                           onchange="window.pasajerosAdultos[${i}].edad = this.value"
+                           class="w-20 rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                    <button type="button" onclick="eliminarAdulto(${i})"
+                            class="rounded-lg bg-red-600 px-3 py-2 text-white hover:bg-red-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `).join('');
+
+            menoresContainer.innerHTML = window.pasajerosMenores.map((p, i) => `
+                <div class="flex gap-2">
+                    <input type="text" placeholder="Nombre completo" value="${p.nombre}"
+                           onchange="window.pasajerosMenores[${i}].nombre = this.value"
+                           class="flex-1 rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                    <input type="number" placeholder="Edad" value="${p.edad}" min="0" max="17"
+                           onchange="window.pasajerosMenores[${i}].edad = this.value"
+                           class="w-20 rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                    <button type="button" onclick="eliminarMenor(${i})"
+                            class="rounded-lg bg-red-600 px-3 py-2 text-white hover:bg-red-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        // Cambiar tab
+        function cambiarTab(tab) {
+            ['reservas', 'pagos', 'nueva'].forEach(t => {
+                document.getElementById(`content-${t}`).classList.toggle('hidden', t !== tab);
+                document.getElementById(`tab-${t}`).classList.toggle('text-blue-600', t === tab);
+                document.getElementById(`tab-${t}`).classList.toggle('border-blue-600', t === tab);
+                document.getElementById(`tab-${t}`).classList.toggle('text-gray-600', t !== tab);
+                document.getElementById(`tab-${t}`).classList.toggle('border-transparent', t !== tab);
+            });
+
+            if (tab === 'reservas') cargarReservas();
+            if (tab === 'pagos') cargarPagosPendientes();
+            if (tab === 'nueva') inicializarFormularioNueva();
+        }
+
+        // Inicializar formulario nueva reserva
+        async function inicializarFormularioNueva() {
+            await cargarClientes();
+            await cargarProveedores();
+            await cargarVendedores();
+            generarFolioInterno();
+            renderizarPasajeros();
+        }
+
+        async function cargarClientes() {
+            try {
+                const res = await fetch('/contacts', { headers: authHeaders() });
+                const data = await res.json();
+
+                const select = document.getElementById('contacto_id');
+                select.innerHTML = '<option value="">Seleccionar cliente...</option>' +
+                    (data.contacts || []).map(c => `<option value="${c.id}" data-telefono="${c.numero_telefono}">${c.nombre || c.numero_telefono}</option>`).join('');
+            } catch (err) {
+                console.error('Error cargando clientes:', err);
+            }
+        }
+
+        async function cargarProveedores() {
+            try {
+                const res = await fetch('/api/proveedores?activos=true', { headers: authHeaders() });
+                const data = await res.json();
+
+                const select = document.getElementById('proveedor_id');
+                select.innerHTML = '<option value="">(sin proveedor)</option>' +
+                    (data.proveedores || []).map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
+            } catch (err) {
+                console.error('Error cargando proveedores:', err);
+            }
+        }
+
+        async function cargarVendedores() {
+            if (userType !== 'admin' && userType !== 'gerente') {
+                document.getElementById('vendedor_container').style.display = 'none';
+                return;
+            }
+
+            document.getElementById('vendedor_container').style.display = 'block';
+
+            try {
+                const res = await fetch('/api/usuarios?activos=true', { headers: authHeaders() });
+                const data = await res.json();
+
+                const select = document.getElementById('vendedor_id');
+                select.innerHTML = '<option value="">(sin asignar)</option>' +
+                    (data.usuarios || []).map(u => {
+                        const selected = u.id == userId ? 'selected' : '';
+                        return `<option value="${u.id}" ${selected}>${u.nombre_completo || u.nombre_usuario} (${u.tipo_usuario})</option>`;
+                    }).join('');
+            } catch (err) {
+                console.error('Error cargando vendedores:', err);
+            }
+        }
+
+        function generarFolioInterno() {
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+            const rnd = String(Math.floor(Math.random() * 9999)).padStart(4, '0');
+            document.getElementById('folio_interno').value = `R-${y}${m}-${rnd}`;
+        }
+
+        function limpiarFormulario() {
+            document.getElementById('form-nueva-reserva').reset();
+            window.pasajerosAdultos = [{ nombre: '', edad: '' }, { nombre: '', edad: '' }];
+            window.pasajerosMenores = [];
+            renderizarPasajeros();
+            generarFolioInterno();
+        }
+
+        // Crear reserva
+        document.getElementById('form-nueva-reserva').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            try {
+                const ocupacion = {
+                    adultos: window.pasajerosAdultos.filter(p => p.nombre.trim()).map(p => ({
+                        nombre: p.nombre.trim(),
+                        edad: Number(p.edad) || 0
+                    })),
+                    menores: window.pasajerosMenores.filter(p => p.nombre.trim()).map(p => ({
+                        nombre: p.nombre.trim(),
+                        edad: Number(p.edad) || 0
+                    }))
+                };
+
+                let vendedorId = null;
+                if (userType === 'admin' || userType === 'gerente') {
+                    vendedorId = document.getElementById('vendedor_id').value || null;
+                } else {
+                    vendedorId = userId;
+                }
+
+                const payload = {
+                    contacto_id: Number(document.getElementById('contacto_id').value),
+                    vendedor_id: vendedorId,
+                    destino: document.getElementById('destino').value.trim(),
+                    check_in: document.getElementById('check_in').value || null,
+                    check_out: document.getElementById('check_out').value || null,
+                    ocupacion,
+                    metodo_pago: document.getElementById('metodo_pago').value,
+                    items: []
+                };
+
+                // Ítem opcional
+                const provId = document.getElementById('proveedor_id').value;
+                const tipo = document.getElementById('tipo_item').value;
+                const desc = document.getElementById('descripcion_item').value.trim();
+                const neto = document.getElementById('precio_neto').value;
+                const cli = document.getElementById('precio_cliente').value;
+
+                if (tipo && provId && neto && cli) {
+                    payload.items.push({
+                        proveedor_id: Number(provId),
+                        tipo,
+                        descripcion: desc || null,
+                        precio_neto: Number(neto),
+                        precio_cliente: Number(cli)
+                    });
+                }
+
+                const res = await fetch('/api/reservas', {
+                    method: 'POST',
+                    headers: authHeaders(),
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) throw new Error(data.message || 'Error al crear reserva');
+
+                alert('✅ Reserva creada correctamente');
+                limpiarFormulario();
+                cambiarTab('reservas');
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
+        });
+
+        // Cargar reservas
+        async function cargarReservas() {
+            const lista = document.getElementById('lista-reservas');
+            lista.innerHTML = '<div class="py-10 text-center text-gray-500"><i class="fas fa-spinner fa-spin text-3xl"></i></div>';
+
+            try {
+                const params = new URLSearchParams();
+                if (document.getElementById('filtro-estado').value) params.set('estado', document.getElementById('filtro-estado').value);
+                if (document.getElementById('filtro-desde').value) params.set('desde', document.getElementById('filtro-desde').value);
+                if (document.getElementById('filtro-hasta').value) params.set('hasta', document.getElementById('filtro-hasta').value);
+
+                const res = await fetch(`/api/reservas?${params.toString()}`, { headers: authHeaders() });
+                const data = await res.json();
+
+                if (!res.ok) throw new Error(data.message || 'Error al cargar reservas');
+
+                const reservas = data.reservas || [];
+
+                if (reservas.length === 0) {
+                    lista.innerHTML = '<div class="py-10 text-center text-gray-500">No hay reservas</div>';
+                    return;
+                }
+
+                lista.innerHTML = reservas.map(r => `
+                    <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900">${r.destino}</h3>
+                                <p class="text-sm text-gray-600">ID: ${r.id}</p>
+                            </div>
+                            <span class="rounded-full px-3 py-1 text-xs font-semibold ${
+                                r.estado === 'LIQUIDADA' ? 'bg-green-100 text-green-800' :
+                                r.estado === 'APARTADA' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-blue-100 text-blue-800'
+                            }">${r.estado}</span>
+                        </div>
+                        <div class="mt-2 text-sm text-gray-600">
+                            📅 ${r.check_in || '-'} → ${r.check_out || '-'}
+                        </div>
+                    </div>
+                `).join('');
+            } catch (err) {
+                lista.innerHTML = `<div class="text-red-600 text-center py-4">Error: ${err.message}</div>`;
+            }
+        }
+
+        // Cargar pagos pendientes
+        async function cargarPagosPendientes() {
+            const lista = document.getElementById('lista-pagos-pendientes');
+            lista.innerHTML = '<div class="py-10 text-center text-gray-500"><i class="fas fa-spinner fa-spin text-3xl"></i></div>';
+
+            try {
+                const res = await fetch('/pagos/cliente/pendientes', { headers: authHeaders() });
+                const data = await res.json();
+
+                if (!res.ok) throw new Error(data.message || 'Error al cargar pagos');
+
+                const pagos = data.pagos || [];
+
+                if (pagos.length === 0) {
+                    lista.innerHTML = '<div class="py-10 text-center text-gray-500">No hay pagos pendientes</div>';
+                    return;
+                }
+
+                lista.innerHTML = pagos.map(p => `
+                    <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="font-semibold">Monto: $${parseFloat(p.monto).toFixed(2)}</p>
+                                <p class="text-sm text-gray-600">Reserva ID: ${p.reserva_id}</p>
+                            </div>
+                            <button onclick="confirmarPago(${p.id})" class="rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700">
+                                Confirmar
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (err) {
+                lista.innerHTML = `<div class="text-red-600 text-center py-4">Error: ${err.message}</div>`;
+            }
+        }
+
+        async function confirmarPago(pagoId) {
+            if (!confirm('¿Confirmar este pago?')) return;
+
+            try {
+                const res = await fetch(`/pagos/cliente/${pagoId}/confirmar`, {
+                    method: 'POST',
+                    headers: authHeaders()
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) throw new Error(data.message || 'Error al confirmar pago');
+
+                alert('✅ Pago confirmado correctamente');
+                cargarPagosPendientes();
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
+        }
+
+        function cerrarSesion() {
+            sessionStorage.clear();
+            localStorage.clear();
+            window.location.href = '/login';
+        }
+
+        // Botón auto-rellenar desde cotizaciones
+        document.getElementById('btn_autorellenar')?.addEventListener('click', async () => {
+            try {
+                const contactoSelect = document.getElementById('contacto_id');
+                const contactoOption = contactoSelect.options[contactoSelect.selectedIndex];
+
+                if (!contactoOption || !contactoOption.value) {
+                    alert('Primero selecciona un cliente');
+                    return;
+                }
+
+                const telefono = contactoOption.getAttribute('data-telefono');
+                if (!telefono) {
+                    alert('No se encontró el teléfono del cliente');
+                    return;
+                }
+
+                const res = await fetch(`/api/cotizaciones/${telefono}?limit=5`, {
+                    headers: authHeaders()
+                });
+
+                if (!res.ok) throw new Error('Error cargando cotizaciones');
+
+                const data = await res.json();
+                const cotizaciones = data.cotizaciones || [];
+
+                if (cotizaciones.length === 0) {
+                    alert('No hay cotizaciones disponibles para este contacto (válidas 24h)');
+                    return;
+                }
+
+                // Mostrar lista de cotizaciones
+                const opciones = cotizaciones.map((c, i) => {
+                    const fecha = new Date(c.created_at).toLocaleString('es-MX');
+                    const tipo = c.tipo === 'PROMO' ? '🏖️ Promo' : '📋 Personalizada';
+                    return `${i + 1}. ${tipo} - ${fecha}`;
+                }).join('\n');
+
+                const seleccion = prompt(`Selecciona una cotización (1-${cotizaciones.length}):\n\n${opciones}`);
+                if (!seleccion) return;
+
+                const index = parseInt(seleccion) - 1;
+                if (index < 0 || index >= cotizaciones.length) {
+                    alert('Selección inválida');
+                    return;
+                }
+
+                const coti = cotizaciones[index];
+                const datos = coti.datos_cotizacion;
+
+                // Auto-rellenar campos
+                if (datos.destino) document.getElementById('destino').value = datos.destino;
+                if (datos.check_in) document.getElementById('check_in').value = datos.check_in;
+                if (datos.check_out) document.getElementById('check_out').value = datos.check_out;
+                if (datos.ocupacion) {
+                    window.pasajerosAdultos = datos.ocupacion.adultos || [];
+                    window.pasajerosMenores = datos.ocupacion.menores || [];
+                    renderizarPasajeros();
+                }
+
+                alert('✅ Cotización cargada correctamente');
+            } catch (err) {
+                console.error('Error auto-rellenando:', err);
+                alert('Error al cargar cotización: ' + err.message);
+            }
+        });
+
+        // Cargar reservas al iniciar
+        cargarReservas();
+    </script>
+</body>
+</html>

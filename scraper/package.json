@@ -1,0 +1,39 @@
+{
+  "name": "naturleon-scraper",
+  "version": "1.0.0",
+  "main": "server.js",
+  "type": "commonjs",
+  "description": "Interfaz web para el buscador de promociones NaturLeon",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "interface": "node server.js",
+    "setup": "npm install cors && npm run create-dirs",
+    "create-dirs": "node -e \"const fs = require('fs'); ['public', 'resultados'].forEach(dir => { if (!fs.existsSync(dir)) fs.mkdirSync(dir, {recursive: true}); console.log('Directorio ' + dir + ' creado'); });\""
+  },
+  "keywords": [
+    "promo-finder",
+    "naturleon",
+    "scraping",
+    "promociones",
+    "interface"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.8.4",
+    "body-parser": "^1.20.3",
+    "cheerio": "^1.0.0",
+    "cors": "^2.8.5",
+    "csv-writer": "^1.6.0",
+    "express": "^4.21.2",
+    "puppeteer": "^24.4.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

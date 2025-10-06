@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - WhatsApp Izland Tours</title>
+
+    <link href="/css/login.css" rel="stylesheet">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="particles"></div>
+    <div class="login-container">
+        <div class="login-header">
+            <div class="logo-container">
+                <img src="/PERFIL.jpg" alt="Izland Tours Logo">
+            </div>
+            <h1>WhatsApp Agencia de Viajes</h1>
+            <p>Iniciar Sesión</p>
+        </div>
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Usuario:</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Contraseña:</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit">Iniciar Sesión</button>
+        </form>
+        <div id="errorMessage" class="error-message"></div>
+    </div>
+
+    <script>
+        // Crear partículas animadas
+        function createParticles() {
+            const particles = document.querySelector('.particles');
+            const particleCount = 20;
+
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                
+                // Propiedades aleatorias para cada partícula
+                const size = Math.random() * 15 + 5;
+                const left = Math.random() * 100;
+                const animationDuration = Math.random() * 20 + 10;
+                const animationDelay = Math.random() * 5;
+
+                particle.style.width = `${size}px`;
+                particle.style.height = `${size}px`;
+                particle.style.left = `${left}%`;
+                particle.style.bottom = '-20px';
+                particle.style.animationDuration = `${animationDuration}s`;
+                particle.style.animationDelay = `${animationDelay}s`;
+
+                particles.appendChild(particle);
+            }
+        }
+
+        // Llamar a la función cuando se carga la página
+        window.addEventListener('load', createParticles);
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                        sessionStorage.setItem('token', data.token);
+                        sessionStorage.setItem('username', data.username);
+                        sessionStorage.setItem('userType', data.userType);
+                        sessionStorage.setItem('userId', data.id);  // Añadir esta línea
+                        
+                        // Añadir animación de salida antes de redirigir
+                        document.querySelector('.login-container').style.transform = 'translateY(-100vh)';
+                        document.querySelector('.login-container').style.opacity = '0';
+                        
+                        setTimeout(() => {
+                            window.location.href = '/';
+                        }, 500);
+                    } else {
+                    const errorMessage = document.getElementById('errorMessage');
+                    errorMessage.textContent = data.message;
+                    errorMessage.style.display = 'block';
+                    
+                    // Reiniciar la animación de shake
+                    errorMessage.style.animation = 'none';
+                    errorMessage.offsetHeight; // Trigger reflow
+                    errorMessage.style.animation = 'shake 0.5s ease-out';
+                    
+                    setTimeout(() => {
+                        errorMessage.style.opacity = '0';
+                        setTimeout(() => {
+                            errorMessage.style.display = 'none';
+                            errorMessage.style.opacity = '1';
+                        }, 300);
+                    }, 5000);
+                }
+            } catch (error) {
+                const errorMessage = document.getElementById('errorMessage');
+                errorMessage.textContent = 'Error al conectar con el servidor';
+                errorMessage.style.display = 'block';
+                
+                setTimeout(() => {
+                    errorMessage.style.opacity = '0';
+                    setTimeout(() => {
+                        errorMessage.style.display = 'none';
+                        errorMessage.style.opacity = '1';
+                    }, 300);
+                }, 5000);
+            }
+        });
+    </script>
+</body>
+</html>

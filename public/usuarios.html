@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Usuarios - Olas y Raíces</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gradient-to-br from-purple-50 to-pink-100 min-h-screen">
+    <!-- Header -->
+    <nav class="bg-white shadow-lg">
+        <div class="mx-auto max-w-7xl px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-users-cog text-3xl text-purple-600"></i>
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-800">Gestión de Usuarios</h1>
+                        <p class="text-sm text-gray-600">Olas y Raíces</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span id="user-name" class="text-sm text-gray-700"></span>
+                    <button onclick="window.location.href='/reservas'" class="rounded-lg bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300">
+                        <i class="fas fa-arrow-left mr-2"></i>Volver
+                    </button>
+                    <button onclick="logout()" class="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Cerrar Sesión
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="mx-auto max-w-7xl px-4 py-8">
+        <div class="rounded-xl bg-white p-6 shadow-lg">
+            <!-- Header con botón agregar -->
+            <div class="mb-6 flex items-center justify-between">
+                <h2 class="text-xl font-bold text-gray-800">Usuarios del Sistema</h2>
+                <button onclick="abrirModalNuevo()" class="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white shadow-md hover:bg-purple-700">
+                    <i class="fas fa-user-plus"></i>
+                    Nuevo Usuario
+                </button>
+            </div>
+
+            <!-- Lista de Usuarios -->
+            <div id="lista-usuarios" class="space-y-3">
+                <div class="py-10 text-center text-gray-500">
+                    <i class="fas fa-spinner fa-spin text-3xl text-purple-600"></i>
+                    <p class="mt-2">Cargando usuarios...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Cambiar Contraseña -->
+    <div id="modal-password" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4">
+        <div class="w-full max-w-md rounded-2xl bg-white shadow-2xl">
+            <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+                <h2 id="modal-password-titulo" class="text-xl font-bold text-gray-800">🔑 Cambiar Contraseña</h2>
+                <button onclick="cerrarModalPassword()" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <form id="form-password" class="p-6 space-y-4">
+                <input type="hidden" id="password_usuario_id">
+                <p id="password_usuario_nombre" class="text-sm text-gray-600"></p>
+
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700">Nueva Contraseña *</label>
+                    <input type="password" id="nueva_password" required minlength="6" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                    <p class="mt-1 text-xs text-gray-500">Mínimo 6 caracteres</p>
+                </div>
+
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700">Confirmar Contraseña *</label>
+                    <input type="password" id="confirmar_password" required minlength="6" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                </div>
+
+                <div class="flex justify-end gap-3 border-t border-gray-200 pt-4">
+                    <button type="button" onclick="cerrarModalPassword()" class="rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 hover:bg-gray-50">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700">
+                        <i class="fas fa-save mr-2"></i>Cambiar Contraseña
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Crear/Editar Usuario -->
+    <div id="modal-usuario" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4">
+        <div class="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
+            <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+                <h2 id="modal-titulo" class="text-xl font-bold text-gray-800">👤 Nuevo Usuario</h2>
+                <button onclick="cerrarModal()" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <form id="form-usuario" class="p-6 space-y-4">
+                <input type="hidden" id="usuario_id">
+
+                <div class="grid gap-4 md:grid-cols-2">
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-gray-700">Nombre Completo *</label>
+                        <input type="text" id="nombre_completo" required class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-purple-500 focus:ring-2 focus:ring-purple-200">
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-gray-700">Nombre de Usuario *</label>
+                        <input type="text" id="nombre_usuario" required class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-purple-500 focus:ring-2 focus:ring-purple-200">
+                    </div>
+                </div>
+
+                <div class="grid gap-4 md:grid-cols-2">
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-gray-700">Email</label>
+                        <input type="email" id="email" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-purple-500 focus:ring-2 focus:ring-purple-200">
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-gray-700">Número de WhatsApp</label>
+                        <input type="tel" id="numero_whatsapp" placeholder="521234567890" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-purple-500 focus:ring-2 focus:ring-purple-200">
+                        <p class="mt-1 text-xs text-gray-500">Formato: 521234567890 (código país + número)</p>
+                    </div>
+                </div>
+
+                <div class="grid gap-4 md:grid-cols-2">
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-gray-700">Tipo de Usuario *</label>
+                        <select id="tipo_usuario" required class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-purple-500 focus:ring-2 focus:ring-purple-200">
+                            <option value="gerente">👑 Gerente</option>
+                            <option value="admin">🛡️ Administrador</option>
+                            <option value="operador">👤 Operador/Vendedor</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-gray-700">Estado</label>
+                        <select id="activo" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-purple-500 focus:ring-2 focus:ring-purple-200">
+                            <option value="true">Activo</option>
+                            <option value="false">Inactivo</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="password-section">
+                    <label class="mb-1 block text-sm font-medium text-gray-700">Contraseña *</label>
+                    <input type="password" id="password" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-purple-500 focus:ring-2 focus:ring-purple-200">
+                    <p class="mt-1 text-xs text-gray-500">Mínimo 6 caracteres</p>
+                </div>
+
+                <div class="flex justify-end gap-3 border-t border-gray-200 pt-4">
+                    <button type="button" onclick="cerrarModal()" class="rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 hover:bg-gray-50">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="rounded-lg bg-purple-600 px-4 py-2 font-medium text-white hover:bg-purple-700">
+                        <i class="fas fa-save mr-2"></i><span id="btn-submit-text">Crear Usuario</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const token = sessionStorage.getItem('token');
+        const userName = sessionStorage.getItem('userName');
+        const userType = sessionStorage.getItem('userType');
+
+        if (!token || (userType !== 'admin' && userType !== 'gerente')) {
+            alert('Acceso denegado. Solo administradores y gerentes pueden gestionar usuarios.');
+            window.location.href = '/login';
+        }
+
+        const esGerente = userType === 'gerente';
+        document.getElementById('user-name').textContent = userName || 'Usuario';
+
+        function authHeaders() {
+            return {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            };
+        }
+
+        function logout() {
+            sessionStorage.clear();
+            window.location.href = '/login';
+        }
+
+        async function cargarUsuarios() {
+            const container = document.getElementById('lista-usuarios');
+            container.innerHTML = '<div class="py-10 text-center text-gray-500"><i class="fas fa-spinner fa-spin text-3xl text-purple-600"></i><p class="mt-2">Cargando...</p></div>';
+
+            try {
+                const res = await fetch('/api/usuarios', { headers: authHeaders() });
+
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                }
+
+                const data = await res.json();
+                console.log('Datos recibidos:', data);
+
+                if (!data.success) {
+                    throw new Error(data.message || 'Error desconocido');
+                }
+
+                // Filtrar usuarios del sistema (asistente_bot)
+                const usuariosFiltrados = (data.usuarios || []).filter(u => !u.usuario_sistema);
+
+                if (usuariosFiltrados.length === 0) {
+                    container.innerHTML = '<div class="rounded-lg border-2 border-dashed border-gray-300 p-10 text-center"><i class="fas fa-users text-4xl text-gray-400"></i><p class="mt-3 text-gray-600">No hay usuarios registrados</p><p class="mt-2 text-sm text-gray-500">Crea el primer usuario usando el botón "Nuevo Usuario"</p></div>';
+                    return;
+                }
+
+                container.innerHTML = usuariosFiltrados.map(u => {
+                    const iconConfig = {
+                        gerente: { bg: 'bg-amber-100', text: 'text-amber-600', icon: 'fa-crown', badge: 'bg-amber-100 text-amber-800', label: '👑 Gerente' },
+                        admin: { bg: 'bg-purple-100', text: 'text-purple-600', icon: 'fa-user-shield', badge: 'bg-purple-100 text-purple-800', label: '🛡️ Admin' },
+                        operador: { bg: 'bg-blue-100', text: 'text-blue-600', icon: 'fa-user', badge: 'bg-blue-100 text-blue-800', label: '👤 Operador' }
+                    };
+                    const config = iconConfig[u.tipo_usuario] || iconConfig.operador;
+
+                    // Solo gerentes pueden editar/eliminar otros gerentes o cambiar contraseñas de gerente
+                    const puedeEditar = esGerente || u.tipo_usuario !== 'gerente';
+                    const puedeEliminar = esGerente || u.tipo_usuario !== 'gerente';
+                    const puedeCambiarPassword = esGerente || (userType === 'admin' && u.tipo_usuario === 'operador');
+
+                    return `
+                    <div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-4">
+                                <div class="flex h-12 w-12 items-center justify-center rounded-full ${config.bg}">
+                                    <i class="fas ${config.icon} text-xl ${config.text}"></i>
+                                </div>
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <h3 class="font-semibold text-gray-800">${u.nombre_completo || u.nombre_usuario}</h3>
+                                        <span class="rounded-full ${config.badge} px-2 py-1 text-xs font-semibold">${config.label}</span>
+                                        ${u.activo ? '<span class="rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-800">Activo</span>' : '<span class="rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-600">Inactivo</span>'}
+                                    </div>
+                                    <p class="text-sm text-gray-600">@${u.nombre_usuario}</p>
+                                    <div class="mt-1 flex gap-3 text-xs text-gray-500">
+                                        ${u.email ? `<span><i class="fas fa-envelope mr-1"></i>${u.email}</span>` : ''}
+                                        ${u.numero_whatsapp ? `<span><i class="fab fa-whatsapp mr-1"></i>${u.numero_whatsapp}</span>` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                ${puedeCambiarPassword ? `<button onclick="abrirModalCambiarPassword(${u.id}, '${u.nombre_completo || u.nombre_usuario}')" class="rounded-lg border border-blue-300 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50">
+                                    <i class="fas fa-key mr-1"></i>Cambiar Contraseña
+                                </button>` : ''}
+                                ${puedeEditar ? `<button onclick='editarUsuario(${JSON.stringify(u)})' class="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                    <i class="fas fa-edit mr-1"></i>Editar
+                                </button>` : ''}
+                                ${puedeEliminar ? `<button onclick="eliminarUsuario(${u.id}, '${u.nombre_completo || u.nombre_usuario}')" class="rounded-lg border border-red-300 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50">
+                                    <i class="fas fa-trash mr-1"></i>Eliminar
+                                </button>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `}).join('');
+            } catch (err) {
+                console.error('Error cargando usuarios:', err);
+                container.innerHTML = '<div class="rounded-lg bg-red-50 p-4 text-red-700">Error al cargar usuarios: ' + err.message + '</div>';
+            }
+        }
+
+        function abrirModalNuevo() {
+            document.getElementById('modal-titulo').textContent = '👤 Nuevo Usuario';
+            document.getElementById('btn-submit-text').textContent = 'Crear Usuario';
+            document.getElementById('form-usuario').reset();
+            document.getElementById('usuario_id').value = '';
+            document.getElementById('password').required = true;
+            document.getElementById('password-section').style.display = 'block';
+
+            // Restringir opción de gerente solo a gerentes
+            const tipoSelect = document.getElementById('tipo_usuario');
+            const gerenteOption = tipoSelect.querySelector('option[value="gerente"]');
+            if (gerenteOption) {
+                gerenteOption.disabled = !esGerente;
+            }
+
+            document.getElementById('modal-usuario').classList.remove('hidden');
+            document.getElementById('modal-usuario').classList.add('flex');
+        }
+
+        function editarUsuario(usuario) {
+            document.getElementById('modal-titulo').textContent = '✏️ Editar Usuario';
+            document.getElementById('btn-submit-text').textContent = 'Guardar Cambios';
+
+            document.getElementById('usuario_id').value = usuario.id;
+            document.getElementById('nombre_completo').value = usuario.nombre_completo || '';
+            document.getElementById('nombre_usuario').value = usuario.nombre_usuario;
+            document.getElementById('email').value = usuario.email || '';
+            document.getElementById('numero_whatsapp').value = usuario.numero_whatsapp || '';
+            document.getElementById('tipo_usuario').value = usuario.tipo_usuario;
+            document.getElementById('activo').value = usuario.activo ? 'true' : 'false';
+
+            // Restringir opción de gerente solo a gerentes
+            const tipoSelect = document.getElementById('tipo_usuario');
+            const gerenteOption = tipoSelect.querySelector('option[value="gerente"]');
+            if (gerenteOption) {
+                gerenteOption.disabled = !esGerente;
+            }
+
+            document.getElementById('password').required = false;
+            document.getElementById('password-section').style.display = 'none';
+
+            document.getElementById('modal-usuario').classList.remove('hidden');
+            document.getElementById('modal-usuario').classList.add('flex');
+        }
+
+        function abrirModalCambiarPassword(usuarioId, nombreUsuario) {
+            document.getElementById('password_usuario_id').value = usuarioId;
+            document.getElementById('password_usuario_nombre').textContent = `Cambiar contraseña para: ${nombreUsuario}`;
+            document.getElementById('form-password').reset();
+            document.getElementById('modal-password').classList.remove('hidden');
+            document.getElementById('modal-password').classList.add('flex');
+        }
+
+        function cerrarModalPassword() {
+            document.getElementById('modal-password').classList.add('hidden');
+            document.getElementById('modal-password').classList.remove('flex');
+            document.getElementById('form-password').reset();
+        }
+
+        document.getElementById('form-password').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const usuarioId = document.getElementById('password_usuario_id').value;
+            const nuevaPassword = document.getElementById('nueva_password').value;
+            const confirmarPassword = document.getElementById('confirmar_password').value;
+
+            if (nuevaPassword !== confirmarPassword) {
+                alert('❌ Las contraseñas no coinciden');
+                return;
+            }
+
+            if (nuevaPassword.length < 6) {
+                alert('❌ La contraseña debe tener al menos 6 caracteres');
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/usuarios/${usuarioId}/password`, {
+                    method: 'PUT',
+                    headers: authHeaders(),
+                    body: JSON.stringify({ password: nuevaPassword })
+                });
+
+                const result = await res.json();
+
+                if (!result.success) throw new Error(result.message);
+
+                alert('✅ Contraseña actualizada exitosamente');
+                cerrarModalPassword();
+            } catch (err) {
+                alert('❌ Error al cambiar contraseña: ' + err.message);
+            }
+        });
+
+        function cerrarModal() {
+            document.getElementById('modal-usuario').classList.add('hidden');
+            document.getElementById('modal-usuario').classList.remove('flex');
+            document.getElementById('form-usuario').reset();
+        }
+
+        document.getElementById('form-usuario').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const usuarioId = document.getElementById('usuario_id').value;
+            const esEdicion = !!usuarioId;
+
+            const data = {
+                nombre_completo: document.getElementById('nombre_completo').value,
+                nombre_usuario: document.getElementById('nombre_usuario').value,
+                email: document.getElementById('email').value || null,
+                numero_whatsapp: document.getElementById('numero_whatsapp').value || null,
+                tipo_usuario: document.getElementById('tipo_usuario').value,
+                activo: document.getElementById('activo').value === 'true'
+            };
+
+            if (!esEdicion) {
+                const password = document.getElementById('password').value;
+                if (!password || password.length < 6) {
+                    alert('La contraseña debe tener al menos 6 caracteres');
+                    return;
+                }
+                data.password = password;
+            }
+
+            try {
+                const url = esEdicion ? `/api/usuarios/${usuarioId}` : '/api/usuarios';
+                const method = esEdicion ? 'PUT' : 'POST';
+
+                const res = await fetch(url, {
+                    method,
+                    headers: authHeaders(),
+                    body: JSON.stringify(data)
+                });
+
+                const result = await res.json();
+
+                if (!result.success) throw new Error(result.message);
+
+                alert(esEdicion ? '✅ Usuario actualizado exitosamente' : '✅ Usuario creado exitosamente');
+                cerrarModal();
+                cargarUsuarios();
+            } catch (err) {
+                alert('❌ Error: ' + err.message);
+            }
+        });
+
+        async function eliminarUsuario(id, nombre) {
+            if (!confirm(`¿Estás seguro de eliminar al usuario "${nombre}"?\n\nEsta acción no se puede deshacer.`)) return;
+
+            try {
+                const res = await fetch(`/api/usuarios/${id}`, {
+                    method: 'DELETE',
+                    headers: authHeaders()
+                });
+
+                const data = await res.json();
+
+                if (!data.success) throw new Error(data.message);
+
+                alert('✅ Usuario eliminado exitosamente');
+                cargarUsuarios();
+            } catch (err) {
+                alert('❌ Error al eliminar usuario: ' + err.message);
+            }
+        }
+
+        // Inicializar
+        cargarUsuarios();
+    </script>
+</body>
+</html>

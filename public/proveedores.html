@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestión de Proveedores | Olas y Raíces</title>
+  <link rel="icon" href="/favicon.ico">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-50">
+
+  <!-- Header -->
+  <div class="border-b border-gray-200 bg-white shadow-sm">
+    <div class="mx-auto max-w-7xl px-4 py-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <a href="/" class="inline-flex items-center rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50">
+            <i class="fas fa-arrow-left mr-2"></i> Regresar
+          </a>
+          <h1 class="text-2xl font-bold text-gray-800">
+            <i class="fas fa-building text-blue-600"></i> Proveedores
+          </h1>
+        </div>
+        <button id="btnNuevoProveedor" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700">
+          <i class="fas fa-plus mr-2"></i> Nuevo Proveedor
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="mx-auto max-w-7xl px-4 py-6">
+
+    <!-- Filtros -->
+    <div class="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div class="flex items-center gap-4">
+        <label class="flex items-center gap-2">
+          <input type="checkbox" id="chkSoloActivos" checked class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500">
+          <span class="text-sm font-medium text-gray-700">Solo activos</span>
+        </label>
+        <input type="text" id="inputBuscar" placeholder="Buscar proveedor..." class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+      </div>
+    </div>
+
+    <!-- Tabla de Proveedores -->
+    <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead class="border-b border-gray-200 bg-gray-50">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">ID</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Nombre</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Comisión</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Email Pagos</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Estado</th>
+              <th class="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-600">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-proveedores" class="divide-y divide-gray-200 bg-white">
+            <!-- Se llena dinámicamente -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Estado de carga -->
+      <div id="loading" class="hidden py-10 text-center">
+        <i class="fas fa-spinner fa-spin text-3xl text-blue-600"></i>
+        <p class="mt-2 text-sm text-gray-500">Cargando proveedores...</p>
+      </div>
+
+      <!-- Sin resultados -->
+      <div id="empty" class="hidden py-10 text-center">
+        <i class="fas fa-inbox text-5xl text-gray-300"></i>
+        <p class="mt-2 text-sm text-gray-500">No se encontraron proveedores</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Nuevo/Editar Proveedor -->
+  <div id="modalProveedor" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4">
+    <div class="w-full max-w-3xl rounded-2xl bg-white shadow-2xl" style="max-height: 90vh; display: flex; flex-direction: column;">
+
+      <!-- Header -->
+      <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4" style="flex-shrink: 0;">
+        <h2 id="modalTitle" class="text-xl font-bold text-gray-800">Nuevo Proveedor</h2>
+        <button onclick="cerrarModal()" class="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600">
+          <i class="fas fa-times text-xl"></i>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="overflow-y-auto px-6 py-4" style="flex: 1;">
+        <form id="formProveedor" class="space-y-5">
+          <input type="hidden" id="proveedor_id">
+
+          <!-- Información Básica -->
+          <div class="rounded-xl border border-gray-200 bg-gradient-to-br from-blue-50 to-white p-4">
+            <h3 class="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <i class="fas fa-building text-blue-600"></i> Información Básica
+            </h3>
+            <div class="grid gap-4 md:grid-cols-2">
+              <div>
+                <label class="mb-1 block text-sm font-medium text-gray-700">Nombre *</label>
+                <input type="text" id="nombre" required class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+              </div>
+              <div>
+                <label class="mb-1 block text-sm font-medium text-gray-700">Portal URL</label>
+                <input type="url" id="portal_url" placeholder="https://..." class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+              </div>
+            </div>
+          </div>
+
+          <!-- Comisiones -->
+          <div class="rounded-xl border border-gray-200 bg-white p-4">
+            <h3 class="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <i class="fas fa-percent text-green-600"></i> Comisiones
+            </h3>
+            <div class="grid gap-4 md:grid-cols-2">
+              <div>
+                <label class="mb-1 block text-sm font-medium text-gray-700">Comisión Efectivo/Transferencia (%)</label>
+                <input type="number" step="0.01" id="comision_efectivo" value="15.00" min="0" max="100" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+              </div>
+              <div>
+                <label class="mb-1 block text-sm font-medium text-gray-700">Comisión Tarjeta (%)</label>
+                <input type="number" step="0.01" id="comision_tarjeta" value="10.00" min="0" max="100" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+              </div>
+            </div>
+          </div>
+
+          <!-- Correos -->
+          <div class="rounded-xl border border-gray-200 bg-white p-4">
+            <h3 class="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <i class="fas fa-envelope text-purple-600"></i> Correos Electrónicos
+            </h3>
+            <div class="grid gap-4 md:grid-cols-2">
+              <div>
+                <label class="mb-1 block text-sm font-medium text-gray-700">Email de Pagos</label>
+                <input type="email" id="email_pagos" placeholder="pagos@proveedor.com" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+              </div>
+              <div>
+                <label class="mb-1 block text-sm font-medium text-gray-700">Email de Facturación</label>
+                <input type="email" id="email_facturacion" placeholder="facturacion@proveedor.com" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+              </div>
+            </div>
+          </div>
+
+          <!-- Información Fiscal -->
+          <div class="rounded-xl border border-gray-200 bg-white p-4">
+            <h3 class="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <i class="fas fa-file-invoice text-orange-600"></i> Información Fiscal
+            </h3>
+            <div class="grid gap-4 md:grid-cols-2">
+              <div>
+                <label class="mb-1 block text-sm font-medium text-gray-700">RFC</label>
+                <input type="text" id="rfc" maxlength="20" class="w-full rounded-lg border border-gray-300 px-3 py-2 uppercase focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+              </div>
+              <div>
+                <label class="mb-1 block text-sm font-medium text-gray-700">Razón Social</label>
+                <input type="text" id="razon_social" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+              </div>
+              <div class="md:col-span-2">
+                <label class="mb-1 block text-sm font-medium text-gray-700">Constancia de Situación Fiscal (URL)</label>
+                <input type="url" id="constancia_fiscal_url" placeholder="https://..." class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                <p class="mt-1 text-xs text-gray-500">Sube el archivo al servidor y pega aquí la URL</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Estado -->
+          <div class="rounded-xl border border-gray-200 bg-white p-4">
+            <label class="flex items-center gap-2">
+              <input type="checkbox" id="activo" checked class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500">
+              <span class="text-sm font-medium text-gray-700">Proveedor activo</span>
+            </label>
+          </div>
+        </form>
+      </div>
+
+      <!-- Footer -->
+      <div class="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4" style="flex-shrink: 0;">
+        <button type="button" onclick="cerrarModal()" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">
+          Cancelar
+        </button>
+        <button type="submit" form="formProveedor" class="rounded-lg bg-blue-600 px-6 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700">
+          <i class="fas fa-save mr-2"></i> Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+    const userType = sessionStorage.getItem('userType');
+
+    // Verificar que sea admin o gerente
+    if (userType !== 'admin' && userType !== 'gerente') {
+      alert('Acceso denegado. Solo administradores y gerentes pueden gestionar proveedores.');
+      window.location.href = '/';
+    }
+
+    if (!token) {
+      window.location.href = '/login';
+    }
+
+    let proveedores = [];
+
+    // Headers para peticiones
+    const authHeaders = () => ({
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    });
+
+    // Cargar proveedores
+    async function cargarProveedores() {
+      const tbody = document.getElementById('tbody-proveedores');
+      const loading = document.getElementById('loading');
+      const empty = document.getElementById('empty');
+
+      tbody.innerHTML = '';
+      loading.classList.remove('hidden');
+      empty.classList.add('hidden');
+
+      try {
+        const soloActivos = document.getElementById('chkSoloActivos').checked;
+        const url = `/api/proveedores?activos=${soloActivos}`;
+
+        const res = await fetch(url, { headers: authHeaders() });
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.message || 'Error al cargar proveedores');
+
+        proveedores = data.proveedores || [];
+
+        loading.classList.add('hidden');
+
+        if (proveedores.length === 0) {
+          empty.classList.remove('hidden');
+          return;
+        }
+
+        filtrarYRenderizar();
+      } catch (err) {
+        loading.classList.add('hidden');
+        alert('Error: ' + err.message);
+      }
+    }
+
+    // Filtrar y renderizar
+    function filtrarYRenderizar() {
+      const buscar = document.getElementById('inputBuscar').value.toLowerCase();
+      const filtrados = proveedores.filter(p =>
+        p.nombre.toLowerCase().includes(buscar) ||
+        (p.rfc || '').toLowerCase().includes(buscar) ||
+        (p.email_pagos || '').toLowerCase().includes(buscar)
+      );
+
+      const tbody = document.getElementById('tbody-proveedores');
+      const empty = document.getElementById('empty');
+
+      if (filtrados.length === 0) {
+        tbody.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+      }
+
+      empty.classList.add('hidden');
+
+      tbody.innerHTML = filtrados.map(p => `
+        <tr class="transition hover:bg-gray-50">
+          <td class="px-6 py-4 text-sm text-gray-900">${p.id}</td>
+          <td class="px-6 py-4">
+            <div class="text-sm font-medium text-gray-900">${p.nombre}</div>
+            ${p.razon_social ? `<div class="text-xs text-gray-500">${p.razon_social}</div>` : ''}
+          </td>
+          <td class="px-6 py-4">
+            <div class="text-xs text-gray-600">
+              <div>💵 Efectivo: ${p.comision_efectivo}%</div>
+              <div>💳 Tarjeta: ${p.comision_tarjeta}%</div>
+            </div>
+          </td>
+          <td class="px-6 py-4 text-sm text-gray-600">${p.email_pagos || '-'}</td>
+          <td class="px-6 py-4">
+            <span class="inline-flex rounded-full px-2 py-1 text-xs font-semibold ${p.activo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+              ${p.activo ? 'Activo' : 'Inactivo'}
+            </span>
+          </td>
+          <td class="px-6 py-4 text-right text-sm">
+            <button onclick="verDeuda(${p.id})" class="mr-2 text-blue-600 hover:text-blue-800" title="Ver deuda">
+              <i class="fas fa-dollar-sign"></i>
+            </button>
+            <button onclick="editarProveedor(${p.id})" class="mr-2 text-indigo-600 hover:text-indigo-800" title="Editar">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button onclick="eliminarProveedor(${p.id})" class="text-red-600 hover:text-red-800" title="Desactivar">
+              <i class="fas fa-trash"></i>
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    // Abrir modal
+    function abrirModal(proveedor = null) {
+      const modal = document.getElementById('modalProveedor');
+      const form = document.getElementById('formProveedor');
+      const title = document.getElementById('modalTitle');
+
+      form.reset();
+
+      if (proveedor) {
+        title.textContent = 'Editar Proveedor';
+        document.getElementById('proveedor_id').value = proveedor.id;
+        document.getElementById('nombre').value = proveedor.nombre;
+        document.getElementById('comision_efectivo').value = proveedor.comision_efectivo;
+        document.getElementById('comision_tarjeta').value = proveedor.comision_tarjeta;
+        document.getElementById('email_pagos').value = proveedor.email_pagos || '';
+        document.getElementById('email_facturacion').value = proveedor.email_facturacion || '';
+        document.getElementById('portal_url').value = proveedor.portal_url || '';
+        document.getElementById('rfc').value = proveedor.rfc || '';
+        document.getElementById('razon_social').value = proveedor.razon_social || '';
+        document.getElementById('constancia_fiscal_url').value = proveedor.constancia_fiscal_url || '';
+        document.getElementById('activo').checked = proveedor.activo;
+      } else {
+        title.textContent = 'Nuevo Proveedor';
+        document.getElementById('activo').checked = true;
+      }
+
+      modal.style.display = 'flex';
+    }
+
+    function cerrarModal() {
+      document.getElementById('modalProveedor').style.display = 'none';
+    }
+
+    // Guardar proveedor
+    document.getElementById('formProveedor').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const id = document.getElementById('proveedor_id').value;
+      const data = {
+        nombre: document.getElementById('nombre').value.trim(),
+        comision_efectivo: parseFloat(document.getElementById('comision_efectivo').value),
+        comision_tarjeta: parseFloat(document.getElementById('comision_tarjeta').value),
+        email_pagos: document.getElementById('email_pagos').value.trim() || null,
+        email_facturacion: document.getElementById('email_facturacion').value.trim() || null,
+        portal_url: document.getElementById('portal_url').value.trim() || null,
+        rfc: document.getElementById('rfc').value.trim().toUpperCase() || null,
+        razon_social: document.getElementById('razon_social').value.trim() || null,
+        constancia_fiscal_url: document.getElementById('constancia_fiscal_url').value.trim() || null,
+        activo: document.getElementById('activo').checked
+      };
+
+      try {
+        const method = id ? 'PUT' : 'POST';
+        const url = id ? `/api/proveedores/${id}` : '/api/proveedores';
+
+        const res = await fetch(url, {
+          method,
+          headers: authHeaders(),
+          body: JSON.stringify(data)
+        });
+
+        const result = await res.json();
+
+        if (!res.ok) throw new Error(result.message || 'Error al guardar proveedor');
+
+        alert(id ? 'Proveedor actualizado correctamente' : 'Proveedor creado correctamente');
+        cerrarModal();
+        cargarProveedores();
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    });
+
+    // Editar proveedor
+    function editarProveedor(id) {
+      const proveedor = proveedores.find(p => p.id === id);
+      if (proveedor) abrirModal(proveedor);
+    }
+
+    // Eliminar proveedor
+    async function eliminarProveedor(id) {
+      if (!confirm('¿Desactivar este proveedor?')) return;
+
+      try {
+        const res = await fetch(`/api/proveedores/${id}`, {
+          method: 'DELETE',
+          headers: authHeaders()
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.message || 'Error al eliminar proveedor');
+
+        alert('Proveedor desactivado correctamente');
+        cargarProveedores();
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    // Ver deuda con proveedor
+    async function verDeuda(id) {
+      try {
+        const res = await fetch(`/api/proveedores/${id}/resumen-deuda`, {
+          headers: authHeaders()
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.message || 'Error al obtener resumen');
+
+        const resumen = data.resumen;
+        const mensaje = `
+RESUMEN DE DEUDA CON PROVEEDOR
+
+📊 Total por pagar: $${parseFloat(resumen.total_por_pagar).toFixed(2)}
+✅ Total pagado: $${parseFloat(resumen.total_pagado).toFixed(2)}
+💰 Saldo pendiente: $${parseFloat(resumen.saldo_pendiente).toFixed(2)}
+📦 Reservas activas: ${resumen.reservas_activas}
+        `;
+
+        alert(mensaje);
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    // Event listeners
+    document.getElementById('btnNuevoProveedor').addEventListener('click', () => abrirModal());
+    document.getElementById('chkSoloActivos').addEventListener('change', cargarProveedores);
+    document.getElementById('inputBuscar').addEventListener('input', filtrarYRenderizar);
+
+    // Cerrar modal al hacer clic fuera
+    document.getElementById('modalProveedor').addEventListener('click', (e) => {
+      if (e.target.id === 'modalProveedor') cerrarModal();
+    });
+
+    // Cargar al iniciar
+    cargarProveedores();
+  </script>
+</body>
+</html>
