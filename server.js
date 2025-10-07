@@ -50,10 +50,6 @@ function appLog(level, msg, meta = {}) {
   if (level === 'error') console.error(line); else console.log(line);
 }
 
-// Ruta de health check para Render
-app.get('/healthz', (_req, res) => res.status(200).send('ok'));
-
-
 app.use((req, res, next) => {
   req.reqId = randomUUID();
   const started = Date.now();
@@ -72,7 +68,7 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-
+app.get('/healthz', (req, res) => res.status(200).json({ ok: true }));
 
 
 // CONFIGURACIÓN DE MULTER para subir archivos
@@ -3217,54 +3213,97 @@ async function ensureUploadsDirectory() {
   }
 }
 
+// ✅ Reemplaza COMPLETO tu startServer() por este:
+
 async function startServer() {
+  console.log('Iniciando servidor...');
+
+  // 1) Carpeta uploads (no crítico)
   try {
-    console.log('Iniciando servidor...');
     await ensureUploadsDirectory();
+    console.log("La carpeta 'uploads' verificada/creada.");
+  } catch (e) {
+    console.warn("[uploads] No se pudo verificar/crear la carpeta:", e?.message || e);
+    // seguimos — no es crítico para levantar el server
+  }
+
+  // 2) Base de datos (CRÍTICO: si falla, no arrancamos)
+  try {
     await initDatabase();
     console.log('Base de datos inicializada correctamente');
+  } catch (e) {
+    console.error('[db] Error al inicializar la base de datos:', e?.message || e);
+    process.exit(1);
+  }
 
-    const whatsappService = new WhatsAppService(io);
+  // 3) WhatsApp Service (NO crítico: si falla, seguimos en modo degradado)
+  let whatsappService = null;
+  let openAIHandler = null;
+  try {
+    whatsappService = new WhatsAppService(io);
     const initialized = await whatsappService.initialize();
-    if (!initialized) {
-      throw new Error('No se pudo inicializar el servicio de WhatsApp');
-    }
+    if (!initialized) throw new Error('initialize() devolvió false');
     console.log('Servicio de WhatsApp iniciado correctamente');
 
-    // Inicializar OpenAIHandler y asignarlo al servicio de WhatsApp
-    const openAIHandler = new OpenAIHandler(whatsappService);
-    whatsappService.openAIHandler = openAIHandler;
+    // OpenAIHandler sólo si WhatsApp quedó arriba
+    try {
+      openAIHandler = new OpenAIHandler(whatsappService);
+      whatsappService.openAIHandler = openAIHandler;
+      console.log('OpenAIHandler listo');
+    } catch (e) {
+      console.warn('[openai] No se pudo inicializar OpenAIHandler:', e?.message || e);
+    }
+  } catch (e) {
+    console.warn('[whatsapp] No se pudo iniciar (modo degradado):', e?.message || e);
+  }
 
-    // Agregar servicios al contexto de la aplicación
-    app.set('whatsappService', whatsappService);
-    app.set('openAIHandler', openAIHandler);
+  // 4) Adjuntar servicios al app context (aunque sean null para modo degradado)
+  app.set('whatsappService', whatsappService);
+  app.set('openAIHandler', openAIHandler);
 
-    // Inicializar Gmail Service
+  // 5) Gmail API (NO crítico)
+  try {
     console.log('Inicializando Gmail API...');
     await gmailService.initialize();
+    console.log('Gmail API lista');
+  } catch (e) {
+    console.warn('[gmail] No se pudo inicializar Gmail API (continuamos sin Gmail):', e?.message || e);
+  }
 
-    // Ejecutar la verificación de mensajes programados cada 60s (si lo deseas)
-    // setInterval(async () => {
-    //   await checkAndSendScheduledMessages();
-    // }, 60000);
-
-    // Iniciar jobs de recordatorios
+  // 6) Jobs (NO críticos)
+  try {
     const RecordatoriosJob = require('./src/jobs/recordatorios.job');
     const recordatoriosJob = new RecordatoriosJob(whatsappService);
     recordatoriosJob.iniciar();
+    console.log('RecordatoriosJob iniciado');
+  } catch (e) {
+    console.warn('[jobs] RecordatoriosJob no se pudo iniciar:', e?.message || e);
+  }
 
-    // Iniciar job de limpieza de cotizaciones
+  try {
     const CotizacionesLimpiezaJob = require('./src/jobs/cotizaciones-limpieza.job');
     const cotizacionesLimpiezaJob = new CotizacionesLimpiezaJob();
     cotizacionesLimpiezaJob.iniciar();
-
-    server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Servidor escuchando en ${PORT}`);
-});
-  } catch (error) {
-    console.error('Error al iniciar el servidor:', error);
-    process.exit(1);
+    console.log('CotizacionesLimpiezaJob iniciado');
+  } catch (e) {
+    console.warn('[jobs] CotizacionesLimpiezaJob no se pudo iniciar:', e?.message || e);
   }
+
+  // 7) Levantar HTTP al final, cuando ya hay al menos DB OK
+  const publicURL = process.env.BASE_URL || `http://localhost:${PORT}`;
+  server.listen(PORT, () => {
+    console.log(`Servidor escuchando en ${PORT} (${publicURL})`);
+  });
 }
 
+// Llamada de arranque
 startServer();
+
+// (Opcional pero MUY útil) — Manejo global de errores no atrapados
+process.on('unhandledRejection', (err) => {
+  console.error('[unhandledRejection]', err);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err);
+});
+

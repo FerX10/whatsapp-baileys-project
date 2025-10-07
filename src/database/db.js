@@ -11,13 +11,22 @@ console.log('DB Config:', {
   port: process.env.DB_PORT
 });
 
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME,
-  port: parseInt(process.env.DB_PORT, 10)
-});
+// === Pool compatible local / Render ===
+const isRender = !!process.env.DATABASE_URL;
+
+const pool = isRender
+  ? new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false } // Render Postgres requiere SSL
+    })
+  : new Pool({
+      host: process.env.DB_HOST || 'localhost',
+      user: process.env.DB_USER || 'postgres',
+      password: process.env.DB_PASSWORD || '',
+      database: process.env.DB_NAME || 'whatsapp_baileys_db',
+      port: parseInt(process.env.DB_PORT || '5432', 10)
+    });
+
 
 /**
  * Inicializa la base de datos con las tablas necesarias
@@ -157,6 +166,30 @@ CREATE TABLE IF NOT EXISTS mensajes (
           fecha_actualizacion TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
           activa BOOLEAN DEFAULT TRUE
       );
+
+      -- sincronía mínima
+ALTER TABLE IF EXISTS usuarios
+  ADD COLUMN IF NOT EXISTS numero_whatsapp VARCHAR(20),
+  ADD COLUMN IF NOT EXISTS email VARCHAR(180),
+  ADD COLUMN IF NOT EXISTS comision_porcentaje NUMERIC(5,2) DEFAULT 25.00,
+  ADD COLUMN IF NOT EXISTS usuario_sistema BOOLEAN DEFAULT FALSE;
+
+ALTER TABLE IF EXISTS mensajes
+  ADD COLUMN IF NOT EXISTS leido BOOLEAN DEFAULT FALSE;
+
+ALTER TABLE IF EXISTS contactos
+  ADD COLUMN IF NOT EXISTS email VARCHAR(180),
+  ADD COLUMN IF NOT EXISTS rfc VARCHAR(20),
+  ADD COLUMN IF NOT EXISTS razon_social VARCHAR(180),
+  ADD COLUMN IF NOT EXISTS cp VARCHAR(10);
+
+ALTER TABLE IF EXISTS proveedores
+  ADD COLUMN IF NOT EXISTS rfc VARCHAR(20),
+  ADD COLUMN IF NOT EXISTS razon_social VARCHAR(180),
+  ADD COLUMN IF NOT EXISTS constancia_fiscal_url TEXT,
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+
 
       -- Índices
       CREATE INDEX IF NOT EXISTS idx_mensajes_numero_telefono ON mensajes(numero_telefono);
