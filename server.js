@@ -107,7 +107,34 @@ const upload = multer({
 const isHttpUrl = (s) => typeof s === 'string' && /^https?:\/\/.+/i.test(s);
 const sanitizeMedia = (arr) => Array.isArray(arr) ? arr.filter(isHttpUrl).slice(0, 50) : [];
 
+// === Salvavidas ultra simple ===
+// Si NO hay ningún 'gerente', sube 'admin' a 'gerente'.
+// (No crea usuarios nuevos, sólo cambia el rol de 'admin' si hace falta)
+async function ensureManagerUserSimple() {
+  try {
+    const { rows: mgrRows } = await pool.query(
+      "SELECT COUNT(*)::int AS count FROM usuarios WHERE tipo_usuario='gerente' AND activo=true"
+    );
 
+    if (mgrRows[0].count > 0) {
+      console.log('[roles] Ya existe al menos un gerente. No hago nada.');
+      return;
+    }
+
+    // Promueve admin -> gerente (si existe)
+    const res = await pool.query(
+      "UPDATE usuarios SET tipo_usuario='gerente' WHERE nombre_usuario='admin'"
+    );
+
+    if (res.rowCount > 0) {
+      console.log("[roles] No había gerente. 'admin' fue promovido a gerente temporalmente.");
+    } else {
+      console.warn("[roles] No hay gerente y no encontré usuario 'admin'. (Si pasa esto, avísame y lo ajustamos creando uno por código).");
+    }
+  } catch (e) {
+    console.warn('[roles] ensureManagerUserSimple error:', e?.message || e);
+  }
+}
 
 
 app.use('/uploads', express.static(UPLOAD_DIR));
@@ -3292,6 +3319,8 @@ async function startServer() {
   try {
     await initDatabase();
     console.log('Base de datos inicializada correctamente');
+    await ensureManagerUserSimple();
+
   } catch (e) {
     console.error('[db] Error al inicializar la base de datos:', e?.message || e);
     process.exit(1);
