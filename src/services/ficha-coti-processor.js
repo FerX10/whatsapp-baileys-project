@@ -129,7 +129,7 @@ class FichaCotiProcessor {
       if (!windowsForMode.length) continue;
 
       if (uniqueModes.length > 1) {
-        await this._safeSend(phoneNumber, ${formatTransportLabel(mode)} · preparando opciones...);
+        await this._safeSend(phoneNumber, `${formatTransportLabel(mode)} · preparando opciones...`);
         await sleep(250);
       }
 
@@ -137,7 +137,7 @@ class FichaCotiProcessor {
         try {
           const tierResults = await this._executeSearch(parsed, window, pasajerosConfig, mode);
           if (!tierResults || !tierResults.options.length) {
-            await this._safeSend(phoneNumber, Para  () no encontre opciones disponibles. Probamos con otra fecha?);
+            await this._safeSend(phoneNumber, `Para ${formatDateRange(window.salida, window.regreso)} (${formatTransportLabel(mode, false)}) no encontre opciones disponibles. Probamos con otra fecha?`);
             await sleep(300);
             continue;
           }
@@ -170,7 +170,7 @@ class FichaCotiProcessor {
                   check_in: window.salida,
                   check_out: window.regreso,
                   ocupacion: {
-                    adultos: parsed.adultos.map((_, idx) => ({ nombre: Adulto , edad: 30 })),
+                    adultos: parsed.adultos.map((_, idx) => ({ nombre: `Adulto ${idx + 1}`, edad: 30 })),
                     menores: parsed.menores.map(edad => ({ nombre: 'Menor', edad }))
                   },
                   plan: parsed.plan,
@@ -180,7 +180,7 @@ class FichaCotiProcessor {
                   num_opciones: tierResults.options.length
                 }
               });
-              console.log(✅ Cotización guardada exitosamente para );
+              console.log(`Cotizacion guardada exitosamente para ${phoneNumber}`);
               cotizacionRegistrada = true;
             } catch (err) {
               console.error('Error guardando cotización:', err);
@@ -190,12 +190,14 @@ class FichaCotiProcessor {
           console.error('FichaCotiProcessor window error:', error);
           await this._safeSend(
             phoneNumber,
-            😅 Tuvimos un detallito con la ventana ** (). Ya avisé al equipo humano para ayudarte en cuanto tengan disponibilidad.
+            `Tuvimos un detallito con la ventana *${formatDateRange(window.salida, window.regreso)}* (${formatTransportLabel(mode, false)}). Ya avise al equipo humano para ayudarte en cuanto tengan disponibilidad.`
           );
           await sleep(300);
         }
       }
     }
+  }
+
   _parsePayload(payload = {}) {
     const safePayload = typeof payload === 'object' && payload !== null ? payload : {};
 
@@ -368,22 +370,20 @@ class FichaCotiProcessor {
 
   _buildSummaryMessage(parsed, fichaId) {
     const lines = [];
-    lines.push('📋 *Ficha de Cotización*');
-    if (fichaId) lines.push(_ID interno: #_);
+    lines.push('Ficha de Cotizacion');
+    if (fichaId) lines.push(`ID interno: #${fichaId}`);
 
-    if (parsed.destino) lines.push(📍 *Destino:* );
-    if (parsed.plan) lines.push(🍽 *Plan:* );
+    if (parsed.destino) lines.push(`Destino: ${parsed.destino}`);
+    if (parsed.plan) lines.push(`Plan: ${formatPlanForDisplay(parsed.plan)}`);
 
     const adultosCount = Number(parsed.adultos) || 0;
     const personas = [];
-    if (adultosCount) personas.push(${adultosCount} adulto);
+    if (adultosCount) personas.push(`${adultosCount} adulto${adultosCount === 1 ? '' : 's'}`);
     if (parsed.menores.length) {
-      const detalle = parsed.menores.map(edad => ${edad} años).join(', ');
-      personas.push(${parsed.menores.length} menor ());
+      const detalle = parsed.menores.map(edad => `${edad} anios`).join(', ');
+      personas.push(`${parsed.menores.length} menor${parsed.menores.length === 1 ? '' : 'es'} (${detalle})`);
     }
-    if (personas.length) {
-      lines.push(👥 *Personas:* );
-    }
+    if (personas.length) lines.push(`Personas: ${personas.join(' + ')}`);
 
     const transportes = Array.isArray(parsed.transportes) && parsed.transportes.length
       ? parsed.transportes
@@ -391,11 +391,11 @@ class FichaCotiProcessor {
     const transporteCopy = transportes.length
       ? transportes.map(t => formatTransportLabel(t)).join(' + ')
       : 'por definir';
-    lines.push(🧭 *Transporte:* );
+    lines.push(`Transporte: ${transporteCopy}`);
 
-    if (parsed.hotelDeseado) lines.push(🏨 *Hotel deseado:* );
-    if (parsed.traslados) lines.push(🚖 *Traslados:* );
-    if (parsed.presupuestoAdulto) lines.push(💰 *Presupuesto/adulto:* );
+    if (parsed.hotelDeseado) lines.push(`Hotel deseado: ${parsed.hotelDeseado}`);
+    if (parsed.traslados) lines.push(`Traslados: ${capitalizeFirst(parsed.traslados)}`);
+    if (parsed.presupuestoAdulto) lines.push(`Presupuesto/adulto: ${formatCurrency(parsed.presupuestoAdulto)}`);
 
     const windows = Array.isArray(parsed.dateWindows)
       ? parsed.dateWindows.slice(0, this.maxWindows)
@@ -403,19 +403,18 @@ class FichaCotiProcessor {
 
     if (windows.length) {
       lines.push('');
-      lines.push(📅 *Fechas sugeridas* (hasta ):);
+      lines.push(`Fechas sugeridas (hasta ${this.maxWindows}):`);
       windows.forEach((win) => {
-        lines.push(• );
+        lines.push(`- ${formatWindowLine(win)}`);
         const note = formatAdjustmentNote(win.adjustedNote);
-        if (note) lines.push(  ⚠️ );
+        if (note) lines.push(`  Nota: ${note}`);
       });
     }
 
     lines.push('');
-    lines.push('_Buscando opciones disponibles..._');
+    lines.push('Buscando opciones disponibles...');
 
-    return lines.join('
-');
+    return lines.join('\n');
   }
 
   async _buildWindowMessages(parsed, window, tierResults) {
@@ -425,27 +424,26 @@ class FichaCotiProcessor {
     const finalOptions = filtered.length ? filtered : options;
 
     if (!finalOptions.length) {
-      return [Para  no encontre opciones disponibles en la plataforma.];
+      return [`Para ${formatDateRange(window.salida, window.regreso)} no encontre opciones disponibles en la plataforma.`];
     }
 
     const messages = [];
 
     const headerLines = [];
-    headerLines.push(📅 **);
-    headerLines.push(🧭 );
+    headerLines.push(`Fecha: ${formatWindowLine(window)}`);
+    headerLines.push(`Transporte: ${formatTransportLabel(tierResults.mode, false)}`);
     if (window.adjustedNote) {
-      headerLines.push(⚠️ );
+      headerLines.push(`Nota: ${formatAdjustmentNote(window.adjustedNote)}`);
     }
 
     if (!allowNonRefundable && filtered.length < options.length) {
       const descartadas = options.length - filtered.length;
-      headerLines.push(ℹ️ _Se descartaron  opción(es) no reembolsable(s) (salida > 14 días)_);
+      headerLines.push(`Aviso: se descartaron ${descartadas} opciones no reembolsables (salida > 14 dias)`);
     } else if (allowNonRefundable && options.some(opt => opt.tipoTarifa === 'NO REEMBOLSABLE')) {
-      headerLines.push('⚠️ _Por cercanía de fecha (<14 días), algunas opciones son NO REEMBOLSABLES_');
+      headerLines.push('Aviso: por cercania de fecha (<14 dias) algunas opciones son no reembolsables');
     }
 
-    messages.push(headerLines.join('
-'));
+    messages.push(headerLines.join('\n'));
 
     finalOptions.forEach((opt, idx) => {
       messages.push(this._formatOption(opt, idx + 1, parsed, tierResults.mode));
@@ -456,12 +454,10 @@ class FichaCotiProcessor {
 
   _formatOption(option, index, parsed, mode) {
     const lines = [];
-    const hotelName = option.titulo || option.hotel || Opcion ;
-
-    const emoji = index === 1 ? '🎁' : index === 2 ? '💡' : '🌅';
+    const title = option.titulo || option.hotel || `Opcion ${index}`;
 
     lines.push('');
-    lines.push(${emoji} **);
+    lines.push(`Opcion ${index}: ${title}`);
 
     const incluye = buildIncludesLine(option, mode);
     if (incluye) lines.push(incluye);
@@ -470,29 +466,28 @@ class FichaCotiProcessor {
     const priceMinor = option?.precios?.precioPorMenorPromedio;
     const total = option?.precios?.precioConMenores ?? option?.precios?.precioSoloAdultos ?? extraerPrecioNumerico(option.precio);
 
-    if (priceAdult) lines.push(👤 *Adulto:* );
-    if (parsed.menores.length && priceMinor) lines.push(🧒 *Menor (prom.):* );
+    if (priceAdult) lines.push(`Adulto: ${formatCurrency(priceAdult)}`);
+    if (parsed.menores.length && priceMinor) lines.push(`Menor (promedio): ${formatCurrency(priceMinor)}`);
     if (total) {
-      lines.push(💵 *Total:* );
-      lines.push(💳 *Reserva con 30%:* );
+      lines.push(`Total: ${formatCurrency(total)}`);
+      lines.push(`Reserva con 30%: ${formatCurrency(Math.round(total * 0.30))}`);
     }
 
     if (option.tipoTarifa === 'NO REEMBOLSABLE') {
-      lines.push('⚠️ *No Reembolsable* (por cercanía de fecha)');
+      lines.push('Tarifa: NO REEMBOLSABLE');
     } else if (option.tipoTarifa && option.tipoTarifa !== 'ESTANDAR') {
-      lines.push(ℹ️ Tarifa: );
+      lines.push(`Tarifa: ${option.tipoTarifa}`);
     }
 
     if (option.mediaLinks) {
       if (option.mediaLinks.tiktok_url) {
-        lines.push(🎬 TikTok: );
+        lines.push(`TikTok: ${option.mediaLinks.tiktok_url}`);
       } else if (option.mediaLinks.external_video_url) {
-        lines.push(🎥 Video: );
+        lines.push(`Video: ${option.mediaLinks.external_video_url}`);
       }
     }
 
-    return lines.join('
-');
+    return lines.join('\n');
   }
 
   _selectOptionsByBudget(options, presupuestoAdulto, adultos) {
