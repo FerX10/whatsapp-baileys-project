@@ -45,33 +45,33 @@ class FichaCotiProcessor {
 
   enqueue(task) {
     if (!task || !task.phoneNumber) return;
-    console.log(`\n🔍 [SCRAPER] Nueva tarea de scraping en cola para ${task.phoneNumber}`);
-    console.log(`📋 Ficha ID: ${task.fichaId}`);
-    console.log(`📦 Payload:`, JSON.stringify(task.payload, null, 2));
+    console.log(`\n[SCRAPER] Nueva tarea de scraping en cola para ${task.phoneNumber}`);
+    console.log(`Ficha ID: ${task.fichaId}`);
+    console.log(`[SCRAPER] Payload:`, JSON.stringify(task.payload, null, 2));
     this.queue.push(task);
     this._processNext();
   }
 
   async _processNext() {
     if (this.processing) {
-      console.log('[SCRAPER] ⏸️ Ya hay un proceso de scraping en curso, esperando...');
+      console.log('[SCRAPER] Ya hay un proceso de scraping en curso, esperando...');
       return;
     }
     const job = this.queue.shift();
     if (!job) return;
 
-    console.log(`[SCRAPER] ▶️ Iniciando scraping para ${job.phoneNumber}...`);
+    console.log(`[SCRAPER] Iniciando scraping para ${job.phoneNumber}...`);
     this.processing = true;
     try {
       await this._handleJob(job);
-      console.log(`[SCRAPER] ✅ Scraping completado para ${job.phoneNumber}`);
+      console.log(`[SCRAPER] Scraping completado para ${job.phoneNumber}`);
     } catch (error) {
-      console.error('[SCRAPER] ❌ Error en scraping:', error);
+      console.error('[SCRAPER] Error en scraping:', error);
       await this._safeSend(job.phoneNumber, 'Lo siento, tuve un problema al generar la cotizacion. Aviso al equipo humano.');
     } finally {
       this.processing = false;
       if (this.queue.length) {
-        console.log(`[SCRAPER] 📋 Quedan ${this.queue.length} tareas en cola`);
+        console.log(`[SCRAPER] Quedan ${this.queue.length} tareas en cola`);
         setTimeout(() => this._processNext(), 200);
       }
     }
@@ -110,67 +110,92 @@ class FichaCotiProcessor {
     await this._safeSend(phoneNumber, summary);
     await sleep(350);
 
-    for (let i = 0; i < parsed.dateWindows.length && i < this.maxWindows; i++) {
-      const window = parsed.dateWindows[i];
-      try {
-        const tierResults = await this._executeSearch(parsed, window, pasajerosConfig);
-        if (!tierResults || !tierResults.options.length) {
-          await this._safeSend(phoneNumber, `Para ${formatDateRange(window.salida, window.regreso)} no encontre opciones disponibles. Intentamos con otras fechas?`);
-          await sleep(300);
-          continue;
-        }
+    const transportModesInput = Array.isArray(parsed.transportes) && parsed.transportes.length
+      ? parsed.transportes
+      : [parsed.transporte].filter(Boolean);
+    const uniqueModes = Array.from(new Set(transportModesInput.length ? transportModesInput : ['camion']));
+    const rawWindows = Array.isArray(parsed.rawDateWindows) && parsed.rawDateWindows.length
+      ? parsed.rawDateWindows
+      : parsed.dateWindows;
 
-        const decorated = [];
-        for (const opt of tierResults.options) {
-          decorated.push(await this._enrichWithMedia(opt));
-        }
+    let cotizacionRegistrada = false;
 
-        const messageChunks = await this._buildWindowMessages(parsed, window, {
-          ...tierResults,
-          options: decorated
-        });
+    for (const mode of uniqueModes) {
+      const windowsForMode = (rawWindows || [])
+        .map(window => adjustWindowForTransport(window, mode))
+        .filter(Boolean)
+        .slice(0, this.maxWindows);
 
-        for (const chunk of messageChunks) {
-          await this._safeSend(phoneNumber, chunk);
-          await sleep(450);
-        }
+      if (!windowsForMode.length) continue;
 
-        // Guardar cotización exitosa en BD (primera ventana de fechas exitosa)
-        if (i === 0) {
-          try {
-            const cotizacionesService = require('./cotizaciones.service');
-            await cotizacionesService.guardarCotizacion({
-              numero_telefono: phoneNumber,
-              tipo: 'PERSONALIZADA',
-              datos_cotizacion: {
-                destino: parsed.destino,
-                check_in: window.salida,
-                check_out: window.regreso,
-                ocupacion: {
-                  adultos: parsed.adultos.map((_, idx) => ({ nombre: `Adulto ${idx + 1}`, edad: 30 })),
-                  menores: parsed.menores.map(edad => ({ nombre: `Menor`, edad }))
-                },
-                plan: parsed.plan,
-                transporte: parsed.transporte,
-                hotel_deseado: parsed.hotelDeseado,
-                presupuesto_aprox_adulto: parsed.presupuesto,
-                num_opciones: tierResults.options.length
-              }
-            });
-            console.log(`✅ Cotización guardada exitosamente para ${phoneNumber}`);
-          } catch (err) {
-            console.error('Error guardando cotización:', err);
+      if (uniqueModes.length > 1) {
+        await this._safeSend(phoneNumber, ${formatTransportLabel(mode)} · preparando opciones...);
+        await sleep(250);
+      }
+
+      for (const window of windowsForMode) {
+        try {
+          const tierResults = await this._executeSearch(parsed, window, pasajerosConfig, mode);
+          if (!tierResults || !tierResults.options.length) {
+            await this._safeSend(phoneNumber, Para  () no encontre opciones disponibles. Probamos con otra fecha?);
+            await sleep(300);
+            continue;
           }
-        }
 
-      } catch (error) {
-        console.error('FichaCotiProcessor window error:', error);
-        await this._safeSend(phoneNumber, `Tuvimos un problema al cotizar ${formatDateRange(window.salida, window.regreso)}. Estoy avisando al equipo.`);
-        await sleep(300);
+          const decorated = [];
+          for (const opt of tierResults.options) {
+            decorated.push(await this._enrichWithMedia(opt));
+          }
+
+          const parsedForMode = { ...parsed, transporte: mode };
+          const messageChunks = await this._buildWindowMessages(parsedForMode, window, {
+            ...tierResults,
+            mode,
+            options: decorated
+          });
+
+          for (const chunk of messageChunks) {
+            await this._safeSend(phoneNumber, chunk);
+            await sleep(450);
+          }
+
+          if (!cotizacionRegistrada) {
+            try {
+              const cotizacionesService = require('./cotizaciones.service');
+              await cotizacionesService.guardarCotizacion({
+                numero_telefono: phoneNumber,
+                tipo: 'PERSONALIZADA',
+                datos_cotizacion: {
+                  destino: parsed.destino,
+                  check_in: window.salida,
+                  check_out: window.regreso,
+                  ocupacion: {
+                    adultos: parsed.adultos.map((_, idx) => ({ nombre: Adulto , edad: 30 })),
+                    menores: parsed.menores.map(edad => ({ nombre: 'Menor', edad }))
+                  },
+                  plan: parsed.plan,
+                  transporte: uniqueModes.join(' + '),
+                  hotel_deseado: parsed.hotelDeseado,
+                  presupuesto_aprox_adulto: parsed.presupuestoAdulto,
+                  num_opciones: tierResults.options.length
+                }
+              });
+              console.log(✅ Cotización guardada exitosamente para );
+              cotizacionRegistrada = true;
+            } catch (err) {
+              console.error('Error guardando cotización:', err);
+            }
+          }
+        } catch (error) {
+          console.error('FichaCotiProcessor window error:', error);
+          await this._safeSend(
+            phoneNumber,
+            😅 Tuvimos un detallito con la ventana ** (). Ya avisé al equipo humano para ayudarte en cuanto tengan disponibilidad.
+          );
+          await sleep(300);
+        }
       }
     }
-  }
-
   _parsePayload(payload = {}) {
     const safePayload = typeof payload === 'object' && payload !== null ? payload : {};
 
@@ -250,13 +275,11 @@ class FichaCotiProcessor {
     };
   }
 
-  async _executeSearch(parsed, window, pasajerosConfig, modeOverride = null) {
-    const mode = modeOverride || parsed.transporte;
-    const parsedWithMode = { ...parsed, transporte: mode };
-    if (mode === 'avion') {
-      return this._runFlightSearch(parsedWithMode, window, pasajerosConfig);
+  async _executeSearch(parsed, window, pasajerosConfig) {
+    if (parsed.transporte === 'avion') {
+      return this._runFlightSearch(parsed, window, pasajerosConfig);
     }
-    return this._runBusSearch(parsedWithMode, window, pasajerosConfig);
+    return this._runBusSearch(parsed, window, pasajerosConfig);
   }
 
   async _runBusSearch(parsed, window, pasajerosConfig) {
@@ -346,18 +369,21 @@ class FichaCotiProcessor {
   _buildSummaryMessage(parsed, fichaId) {
     const lines = [];
     lines.push('📋 *Ficha de Cotización*');
-    if (fichaId) lines.push('_ID interno: #' + fichaId + '_');
-    lines.push('');
-    lines.push('📍 *Destino:* ' + (parsed.destino || 'por definir'));
-    lines.push('🍽 *Plan:* ' + formatPlanForDisplay(parsed.plan));
+    if (fichaId) lines.push(_ID interno: #_);
+
+    if (parsed.destino) lines.push(📍 *Destino:* );
+    if (parsed.plan) lines.push(🍽 *Plan:* );
 
     const adultosCount = Number(parsed.adultos) || 0;
-    const personas = [adultosCount + ' adulto' + (adultosCount === 1 ? '' : 's')];
+    const personas = [];
+    if (adultosCount) personas.push(${adultosCount} adulto);
     if (parsed.menores.length) {
-      const detalle = parsed.menores.map(edad => edad + ' años').join(', ');
-      personas.push(parsed.menores.length + ' menor' + (parsed.menores.length === 1 ? '' : 'es') + ' (' + detalle + ')');
+      const detalle = parsed.menores.map(edad => ${edad} años).join(', ');
+      personas.push(${parsed.menores.length} menor ());
     }
-    lines.push('👥 *Personas:* ' + personas.join(' + '));
+    if (personas.length) {
+      lines.push(👥 *Personas:* );
+    }
 
     const transportes = Array.isArray(parsed.transportes) && parsed.transportes.length
       ? parsed.transportes
@@ -365,11 +391,11 @@ class FichaCotiProcessor {
     const transporteCopy = transportes.length
       ? transportes.map(t => formatTransportLabel(t)).join(' + ')
       : 'por definir';
-    lines.push('🧭 *Transporte:* ' + transporteCopy);
+    lines.push(🧭 *Transporte:* );
 
-    if (parsed.traslados) lines.push('🚖 *Traslados:* ' + capitalizeFirst(parsed.traslados));
-    if (parsed.hotelDeseado) lines.push('🏨 *Hotel deseado:* ' + parsed.hotelDeseado);
-    if (parsed.presupuestoAdulto) lines.push('💰 *Presupuesto/adulto:* ' + formatCurrency(parsed.presupuestoAdulto));
+    if (parsed.hotelDeseado) lines.push(🏨 *Hotel deseado:* );
+    if (parsed.traslados) lines.push(🚖 *Traslados:* );
+    if (parsed.presupuestoAdulto) lines.push(💰 *Presupuesto/adulto:* );
 
     const windows = Array.isArray(parsed.dateWindows)
       ? parsed.dateWindows.slice(0, this.maxWindows)
@@ -377,19 +403,21 @@ class FichaCotiProcessor {
 
     if (windows.length) {
       lines.push('');
-      lines.push('📅 *Fechas sugeridas* (hasta ' + this.maxWindows + '):');
+      lines.push(📅 *Fechas sugeridas* (hasta ):);
       windows.forEach((win) => {
-        lines.push('• ' + formatWindowLine(win));
+        lines.push(• );
         const note = formatAdjustmentNote(win.adjustedNote);
-        if (note) lines.push('  ⚠️ ' + note);
+        if (note) lines.push(  ⚠️ );
       });
     }
 
     lines.push('');
     lines.push('_Buscando opciones disponibles..._');
 
-    return lines.join('\n');
+    return lines.join('
+');
   }
+
   async _buildWindowMessages(parsed, window, tierResults) {
     const options = this._selectOptionsByBudget(tierResults.options, parsed.presupuestoAdulto, parsed.adultos);
     const allowNonRefundable = daysUntil(window.salida) <= this.nonRefundableGraceDays;
@@ -404,17 +432,20 @@ class FichaCotiProcessor {
 
     const headerLines = [];
     headerLines.push(📅 **);
-    if (window.adjustedNote) headerLines.push(⚠️ __);
     headerLines.push(🧭 );
+    if (window.adjustedNote) {
+      headerLines.push(⚠️ );
+    }
 
     if (!allowNonRefundable && filtered.length < options.length) {
       const descartadas = options.length - filtered.length;
       headerLines.push(ℹ️ _Se descartaron  opción(es) no reembolsable(s) (salida > 14 días)_);
     } else if (allowNonRefundable && options.some(opt => opt.tipoTarifa === 'NO REEMBOLSABLE')) {
-      headerLines.push(⚠️ _Por cercanía de fecha (<14 días), algunas opciones son NO REEMBOLSABLES_);
+      headerLines.push('⚠️ _Por cercanía de fecha (<14 días), algunas opciones son NO REEMBOLSABLES_');
     }
 
-    messages.push(headerLines.join('\n'));
+    messages.push(headerLines.join('
+'));
 
     finalOptions.forEach((opt, idx) => {
       messages.push(this._formatOption(opt, idx + 1, parsed, tierResults.mode));
@@ -460,8 +491,426 @@ class FichaCotiProcessor {
       }
     }
 
-    return lines.join('\n');
+    return lines.join('
+');
   }
+
+  _selectOptionsByBudget(options, presupuestoAdulto, adultos) {
+    if (!Array.isArray(options) || !options.length) return [];
+
+    // Dedupe y ordenar por precio
+    const unique = dedupeBy(options, opt => (opt.titulo || '') + '|' + (opt.habitacion || ''));
+    const sorted = unique.sort((a, b) => {
+      const aVal = a?.precios?.precioPorAdulto || divideSafe(extraerPrecioNumerico(a.precio), adultos);
+      const bVal = b?.precios?.precioPorAdulto || divideSafe(extraerPrecioNumerico(b.precio), adultos);
+      return aVal - bVal;
+    });
+
+    // SIN presupuesto: devolver las 3 mas baratas
+    if (!presupuestoAdulto || presupuestoAdulto <= 0) {
+      return sorted.slice(0, 3);
+    }
+
+    // CON presupuesto: seleccionar 3 opciones distribuidas
+    const cheaper = sorted.filter(opt => (opt?.precios?.precioPorAdulto || 0) < presupuestoAdulto);
+    const equalOrClose = sorted
+      .map(opt => ({ opt, diff: Math.abs((opt?.precios?.precioPorAdulto || 0) - presupuestoAdulto) }))
+      .sort((a, b) => a.diff - b.diff)
+      .map(item => item.opt);
+    const higher = sorted.filter(opt => (opt?.precios?.precioPorAdulto || 0) > presupuestoAdulto);
+
+    const picked = [];
+
+    // 1. Opcion cercana al presupuesto (prioritaria)
+    if (equalOrClose.length) picked.push(equalOrClose[0]);
+
+    // 2. Opcion mas barata (debajo del presupuesto)
+    if (cheaper.length) {
+      // Tomar la mejor opcion barata (la mas cara de las baratas)
+      picked.push(cheaper[cheaper.length - 1]);
+    } else if (sorted.length && !picked.includes(sorted[0])) {
+      // Si no hay opciones baratas, tomar la mas barata disponible
+      picked.push(sorted[0]);
+    }
+
+    // 3. Opcion superior (arriba del presupuesto)
+    if (higher.length) {
+      picked.push(higher[0]);
+    } else if (sorted.length >= 2 && !picked.includes(sorted[sorted.length - 1])) {
+      // Si no hay opciones caras, tomar la mas cara disponible
+      picked.push(sorted[sorted.length - 1]);
+    }
+
+    // Dedupear y limitar a 3
+    const final = dedupeBy(picked.filter(Boolean), opt => (opt.titulo || '') + '|' + (opt.habitacion || ''));
+
+    // Si tenemos menos de 3, completar con las siguientes mejores opciones
+    if (final.length < 3 && sorted.length > final.length) {
+      const existing = new Set(final.map(opt => (opt.titulo || '') + '|' + (opt.habitacion || '')));
+      for (const opt of sorted) {
+        const key = (opt.titulo || '') + '|' + (opt.habitacion || '');
+        if (!existing.has(key)) {
+          final.push(opt);
+          existing.add(key);
+          if (final.length >= 3) break;
+        }
+      }
+    }
+
+    return final.slice(0, 3);
+  }
+
+  async _enrichWithMedia(option) {
+    if (!option || option.mediaChecked) return option;
+    const nombre = option.titulo || option.hotel;
+    if (!nombre) {
+      option.mediaChecked = true;
+      return option;
+    }
+
+    try {
+      let result = await ejecutarConReintento(
+        'SELECT name, tiktok_url, external_video_url FROM hotels WHERE LOWER(name)=LOWER($1) LIMIT 1',
+        [nombre]
+      );
+
+      if (!result.rows.length) {
+        result = await ejecutarConReintento(
+          'SELECT name, tiktok_url, external_video_url FROM hotels WHERE LOWER(name) LIKE LOWER($1) ORDER BY name LIMIT 1',
+          [`%${nombre}%`]
+        );
+      }
+
+      if (result.rows.length) {
+        option.mediaLinks = {
+          tiktok_url: result.rows[0].tiktok_url || null,
+          external_video_url: result.rows[0].external_video_url || null
+        };
+      }
+    } catch (error) {
+      console.warn('FichaCotiProcessor media lookup error:', error.message);
+    }
+
+    option.mediaChecked = true;
+    return option;
+  }
+
+  async _safeSend(phoneNumber, message) {
+    if (!message) return;
+    try {
+      await this.service.sendMessage(phoneNumber, message);
+    } catch (error) {
+      console.error('Error enviando mensaje de ficha-coti:', error);
+    }
+  }
+}
+
+module.exports = FichaCotiProcessor;
+
+// -------------------------------------------------------------
+// Helpers
+// -------------------------------------------------------------
+
+function pickString(values) {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
+function normalizePlan(plan) {
+  if (!plan) return null;
+  const token = normalizeToken(plan);
+  if (token.includes('todo')) return 'todo incluido';
+  if (token.includes('desayuno')) return 'desayunos';
+  if (token.includes('solo')) return 'solo hospedaje';
+  return plan;
+}
+
+function planToNaturleon(plan) {
+  if (!plan) return 'todoincluido';
+  const token = normalizeToken(plan);
+  if (token.includes('todo')) return 'todoincluido';
+  if (token.includes('desayuno')) return 'desayuno';
+  if (token.includes('solo')) return 'soloalojamiento';
+  return 'todoincluido';
+}
+
+function normalizeTransport(value, destino) {
+  if (value) {
+    const token = normalizeToken(value);
+    if (token.includes('avion') || token.includes('vuelo') || token.includes('aereo')) {
+      return 'avion';
+    }
+    if (token.includes('camion') || token.includes('bus') || token.includes('autobus')) {
+      return 'camion';
+    }
+  }
+
+  const destToken = normalizeToken(destino || '');
+  if (AIR_ONLY_DESTINATIONS.some(d => destToken.includes(d))) return 'avion';
+  if (BUS_DEFAULT_DESTINATIONS.some(d => destToken.includes(d))) return 'camion';
+  return value ? normalizeToken(value) : 'camion';
+}
+
+function extractMenores(payload) {
+  const menoresRaw = payload.menores || payload.menores_edades || payload.edades_menores || [];
+  const menores = [];
+
+  if (Array.isArray(menoresRaw)) {
+    menoresRaw.forEach(item => {
+      if (typeof item === 'number') menores.push(Math.round(item));
+      else if (typeof item === 'string') {
+        const parsed = toPositiveInt(item);
+        if (parsed !== null) menores.push(parsed);
+      } else if (item && typeof item === 'object') {
+        const edad = toPositiveInt(item.edad || item.age);
+        if (edad !== null) menores.push(edad);
+      }
+    });
+  }
+
+  const edadesAlt = payload.edades || payload.menores_edades_texto;
+  if (typeof edadesAlt === 'string') {
+    edadesAlt.split(/[,;\s]+/).forEach(token => {
+      const edad = toPositiveInt(token);
+      if (edad !== null) menores.push(edad);
+    });
+  }
+
+  return menores;
+}
+
+function parseMoney(value) {
+  if (!value) return null;
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    const match = value.replace(/[^0-9.,]/g, '');
+    if (!match) return null;
+    const normalized = match.replace(/,/g, '');
+    const num = Number(normalized);
+    return Number.isFinite(num) ? num : null;
+  }
+  return null;
+}
+
+function toPositiveInt(value, fallback = null) {
+  const num = typeof value === 'number' ? value : Number(String(value || '').trim());
+  if (Number.isFinite(num) && num > 0) return Math.round(num);
+  return fallback;
+}
+
+function extractDateWindows(payload) {
+  const windows = [];
+  const candidates = [];
+
+  if (Array.isArray(payload.fechas)) candidates.push(...payload.fechas);
+  else if (payload.fechas && typeof payload.fechas === 'object') candidates.push(payload.fechas);
+  if (Array.isArray(payload.fechas_opciones)) candidates.push(...payload.fechas_opciones);
+  if (Array.isArray(payload.ventanas)) candidates.push(...payload.ventanas);
+
+  const single = {
+    salida: payload?.fechas?.salida || payload.fecha_salida || payload.salida,
+    regreso: payload?.fechas?.regreso || payload.fecha_regreso || payload.regreso
+  };
+  if (single.salida && single.regreso) candidates.push(single);
+
+  candidates.forEach((item) => {
+    if (!item) return;
+    const salida = ensureMidday(parseDateCandidate(item.salida || item.inicio || item.from || item.start || item.fechaInicio));
+    const regreso = ensureMidday(parseDateCandidate(item.regreso || item.fin || item.to || item.end || item.fechaFin));
+    if (salida && regreso && regreso > salida) {
+      windows.push({
+        salida,
+        regreso,
+        nights: Math.max(diffInDays(salida, regreso), 1)
+      });
+    }
+  });
+
+  return dedupeBy(windows, w => `${isoFromDate(w.salida)}|${isoFromDate(w.regreso)}`);
+}
+
+
+function adjustWindowForTransport(window, transporte) {
+  if (!window) return null;
+  const salida = ensureMidday(window.salida);
+  const regreso = ensureMidday(window.regreso);
+  if (!salida || !regreso || regreso <= salida) return null;
+
+  const base = {
+    salida,
+    regreso,
+    nights: Math.max(diffInDays(salida, regreso), 1)
+  };
+
+  if (transporte !== 'camion') {
+    return base;
+  }
+
+  const snapped = snapToBusPattern(salida, regreso);
+  if (!snapped) return base;
+
+  const adjusted = {
+    salida: snapped.salida,
+    regreso: snapped.regreso,
+    nights: snapped.nights
+  };
+
+  if (snapped.adjusted && snapped.patternLabel) {
+    adjusted.adjustedNote = snapped.patternLabel;
+  }
+
+  return adjusted;
+}
+
+
+function snapToBusPattern(salida, regreso) {
+  const candidates = [];
+  const current = {
+    salida,
+    regreso,
+    nights: Math.max(diffInDays(salida, regreso), 1),
+    adjusted: false,
+    patternLabel: describeBusPattern(salida, regreso),
+    cost: 0
+  };
+  candidates.push(current);
+
+  BUS_PATTERNS.forEach((pattern) => {
+    const startCandidate = nearestDayMatch(salida, pattern.startDow);
+    if (!startCandidate) return;
+    const endCandidate = shiftDays(startCandidate, pattern.diff);
+    if (!endCandidate || endCandidate <= startCandidate) return;
+
+    const nights = Math.max(diffInDays(startCandidate, endCandidate), 1);
+    const cost = Math.abs(diffInDays(salida, startCandidate)) + Math.abs(diffInDays(regreso, endCandidate));
+
+    candidates.push({
+      salida: startCandidate,
+      regreso: endCandidate,
+      nights,
+      adjusted: startCandidate.getTime() !== salida.getTime() || endCandidate.getTime() !== regreso.getTime(),
+      patternLabel: pattern.label,
+      cost
+    });
+  });
+
+  let best = null;
+  for (const candidate of candidates) {
+    if (!best || candidate.cost < best.cost) {
+      best = candidate;
+      continue;
+    }
+    if (candidate.cost === best.cost && !candidate.adjusted && best.adjusted) {
+      best = candidate;
+    }
+  }
+
+  return best;
+}
+
+function describeBusPattern(inicio, fin) {
+  const startDow = inicio.getDay();
+  const endDow = fin.getDay();
+  const nights = Math.max(diffInDays(inicio, fin), 1);
+  const pattern = BUS_PATTERNS.find(p => p.startDow === startDow && p.endDow === endDow && p.diff === nights);
+  if (pattern) return pattern.label;
+  const start = capitalizeFirst((DOW_SHORT[startDow] || "").toLowerCase());
+  const end = capitalizeFirst((DOW_SHORT[endDow] || "").toLowerCase());
+  const suffix = nights === 1 ? "1 noche" : `${nights} noches`;
+  return `${start} a ${end} (${suffix})`;
+}
+
+function toIsoDate(value) {
+  const date = ensureMidday(value);
+  if (!date) return null;
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+
+function toIsoDate(value) {
+  const date = new Date(value);
+  if (isNaN(date)) return null;
+  return date.toISOString().slice(0, 10);
+}
+
+function divideSafe(total, adultos) {
+  if (!total || !Number.isFinite(total)) return Number.MAX_SAFE_INTEGER;
+  const count = Math.max(adultos || 1, 1);
+  return Math.round(total / count);
+}
+
+function formatDateRange(start, end) {
+  const startStr = formatDate(start);
+  const endStr = formatDate(end);
+  return `${startStr} - ${endStr}`;
+}
+
+function formatDate(value) {
+  const date = new Date(value);
+  if (isNaN(date)) return 'fecha por definir';
+  return date.toLocaleDateString('es-MX', { day: '2-digit', month: 'long' });
+}
+
+﻿function formatPlanForDisplay(plan) {
+  if (!plan) return 'por definir';
+  const normalized = normalizeToken(plan);
+  if (normalized.includes('todo')) return 'Todo Incluido';
+  if (normalized.includes('desayuno')) return 'Desayunos';
+  if (normalized.includes('solo')) return 'Solo hospedaje';
+  return capitalizeFirst(plan);
+}
+
+function capitalizeFirst(text) {
+  if (!text) return '';
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function parseDateCandidate(value) {
+  if (!value) return null;
+  if (value instanceof Date) return ensureMidday(value);
+  if (typeof value === 'number') {
+    const date = new Date(value);
+    return isNaN(date) ? null : ensureMidday(date);
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      const date = new Date(trimmed);
+      return isNaN(date) ? null : ensureMidday(date);
+    }
+    if (/^\d{2}[\/.-]\d{2}[\/.-]\d{4}$/.test(trimmed)) {
+      const [day, month, year] = trimmed.split(/[\/.-]/);
+      const iso = `${year}-${month}-${day}`;
+      const date = new Date(iso);
+      return isNaN(date) ? null : ensureMidday(date);
+    }
+    const date = new Date(trimmed);
+    return isNaN(date) ? null : ensureMidday(date);
+  }
+  return null;
+}
+
+function dedupeBy(list, selector) {
+  const seen = new Set();
+  const result = [];
+  list.forEach(item => {
+    const key = selector(item);
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(item);
+    }
+  });
+  return result;
+}
+
 function convertAdultOnlyHotel(hotel, pasajerosConfig) {
   const total = extraerPrecioNumerico(hotel.precio) || 0;
   const adultos = Math.max(pasajerosConfig.adultos || 1, 1);
@@ -527,11 +976,11 @@ function formatCurrency(value) {
 }
 
 function daysUntil(date) {
-  const target = new Date(date);
-  if (isNaN(target)) return Number.MAX_SAFE_INTEGER;
-  const today = new Date();
+  const target = ensureMidday(date);
+  if (!target) return Number.MAX_SAFE_INTEGER;
+  const today = ensureMidday(new Date());
   const diff = target.setHours(0, 0, 0, 0) - today.setHours(0, 0, 0, 0);
-  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  return Math.ceil(diff / DAY_MS);
 }
 
 function normalizeToken(text) {
@@ -542,19 +991,12 @@ function normalizeToken(text) {
     .toLowerCase();
 }
 
-
 function ensureMidday(value) {
   if (!value) return null;
   const source = value instanceof Date ? new Date(value.getTime()) : new Date(value);
   if (isNaN(source)) return null;
   source.setHours(12, 0, 0, 0);
   return source;
-}
-
-function createDateFromParts(year, monthIndex, day) {
-  if (!Number.isFinite(year) || !Number.isFinite(monthIndex) || !Number.isFinite(day)) return null;
-  const date = new Date(year, monthIndex, day, 12, 0, 0, 0);
-  return isNaN(date) ? null : date;
 }
 
 function shiftDays(date, offset) {
@@ -603,10 +1045,31 @@ function diffInDays(start, end) {
   return Math.round((b - a) / DAY_MS);
 }
 
+function divideSafe(total, adultos) {
+  if (!total || !adultos) return 0;
+  return Math.round(total / adultos);
+}
+
+function formatDate(value) {
+  const date = ensureMidday(value);
+  if (!date) return 'fecha por definir';
+  const day = String(date.getDate()).padStart(2, '0');
+  const monthName = MONTH_NAMES[date.getMonth()] || '';
+  const year = date.getFullYear();
+  return `${day} de ${monthName} ${year}`;
+}
+
+function formatDateRange(start, end) {
+  const startDate = ensureMidday(start);
+  const endDate = ensureMidday(end);
+  if (!startDate || !endDate) return 'fechas por definir';
+  return `${formatDayAbbrev(startDate)} → ${formatDayAbbrev(endDate)}`;
+}
+
 function formatTransportLabel(mode, includeIcon = true) {
   const normalized = mode === 'avion' ? 'avion' : 'camion';
   if (!includeIcon) return normalized === 'avion' ? 'Vuelo' : 'Camion';
-  return normalized === 'avion' ? 'Vuelo ??' : 'Camion ??';
+  return normalized === 'avion' ? 'Vuelo ✈️' : 'Camion 🚌';
 }
 
 function formatDayAbbrev(value) {
@@ -622,22 +1085,22 @@ function formatWindowLine(window) {
   if (!window) return 'fecha por definir';
   const nights = Number.isFinite(window.nights)
     ? window.nights
-    : Math.max(diffInDays(window.salida, window.regreso), 0);
+    : Math.max(diffInDays(window.salida, window.regreso), 1);
   const suffix = nights === 1 ? 'noche' : 'noches';
-  return `${formatDayAbbrev(window.salida)} -> ${formatDayAbbrev(window.regreso)} (${nights} ${suffix})`;
+  return `${formatDayAbbrev(window.salida)} → ${formatDayAbbrev(window.regreso)} (${nights} ${suffix})`;
 }
 
 function formatAdjustmentNote(note) {
   if (!note) return null;
   const normalized = note.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const clean = normalized.replace(/- patron valido para transporte/i, '').trim();
-  const match = clean.match(/^([A-Za-z]+) a ([A-Za-z]+) \((\d+) noches?\)/i);
+  const match = clean.match(/^([A-Za-z]+) a ([A-Za-z]+) \((\d+) noches?\)$/i);
   if (match) {
     const start = capitalizeFirst(match[1].toLowerCase());
     const end = capitalizeFirst(match[2].toLowerCase());
     const nights = parseInt(match[3], 10);
-    const suffix = nights === 1 ? 'noche' : 'noches';
-    return `Ajustamos a ${start} -> ${end} (${nights} ${suffix})`;
+    const suffix = nights === 1 ? '1 noche' : `${nights} noches`;
+    return `Ajustamos a ${start} → ${end} (${suffix})`;
   }
   return `Ajuste aplicado: ${clean}`;
 }
@@ -677,7 +1140,7 @@ function collectTransportModes(payload) {
     if (token.includes('camion') || token.includes('bus') || token.includes('autobus') || token.includes('terrestre')) {
       modes.add('camion');
     }
-    if (token.includes('avion') || token.includes('vuelo') || token.includes('aereo') || token.includes('aer�o')) {
+    if (token.includes('avion') || token.includes('vuelo') || token.includes('aereo')) {
       modes.add('avion');
     }
   });
