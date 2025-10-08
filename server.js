@@ -1,6 +1,6 @@
 // server.js
 
-require('dotenv').config(); // <-- NUEVO: carga variables del .env
+const { config } = require('./src/config/env');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const express = require('express');
@@ -10,10 +10,15 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const fsPromises = require('fs').promises; // Agrega esta línea
 const OpenAI = require('openai');
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-  organization: process.env.OPENAI_ORGANIZATION
-});
+let openai = null;
+if (config.openai.apiKey) {
+  openai = new OpenAI({
+    apiKey: config.openai.apiKey,
+    organization: config.openai.organization || undefined
+  });
+} else {
+  console.warn('[openai] OPENAI_API_KEY no configurada; cliente OpenAI deshabilitado.');
+}
 global.__openaiClient = openai;
 
 const fs = require('fs');
@@ -34,9 +39,9 @@ const {
 const app = express();
 const server = createServer(app);
 const io = new Server(server);
-const PORT = process.env.PORT || 3000;
+const PORT = config.port;
 const JWT_SECRET = 'tu_secreto_jwt_muy_seguro';
-const BASE_URL = process.env.BASE_URL || process.env.NGROK_URL || `http://localhost:${PORT}`;
+const BASE_URL = config.baseUrl || process.env.NGROK_URL || `http://localhost:${PORT}`;
 // ===== Logger minimalista por request (JSON una sola línea) =====
 const { randomUUID } = require('crypto');
 function appLog(level, msg, meta = {}) {
@@ -3240,17 +3245,17 @@ async function ensureUploadsDirectory() {
   }
 }
 // Auxiliares para entorno
-const isProd = process.env.NODE_ENV === 'production';
-const PUBLIC_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
+const isProd = config.nodeEnv === 'production';
+const PUBLIC_URL = config.baseUrl || `http://localhost:${PORT}`;
 
 // Detecta si tenemos token de Gmail disponible (archivo o env/secret)
 function hasGmailTokenAvailable() {
   // 1) Secret file (Render → Secret Files) ej. /etc/secrets/token.json
   const fs = require('fs');
-  if (process.env.GMAIL_TOKEN_PATH && fs.existsSync(process.env.GMAIL_TOKEN_PATH)) return true;
+  if (config.gmail.tokenPath && fs.existsSync(config.gmail.tokenPath)) return true;
 
   // 2) Variable de entorno con JSON del token (si decides guardarlo así)
-  if (process.env.GMAIL_TOKEN_JSON) return true;
+  if (config.gmail.tokenJSON) return true;
 
   // 3) Token en repo (NO recomendado en prod), solo por compatibilidad local
   if (fs.existsSync(require('path').join(__dirname, 'token.json'))) return true;
@@ -3260,6 +3265,11 @@ function hasGmailTokenAvailable() {
 
 async function safeInitGmail() {
   try {
+    if (!config.gmail.enabled) {
+      console.log('[gmail] Deshabilitado vía configuración (GMAIL_ENABLED).');
+      return;
+    }
+
     // En producción, NO bloquees pidiendo código. Solo inicializa si ya hay token listo.
     if (isProd && !hasGmailTokenAvailable()) {
       console.warn('[gmail] Saltando Gmail en producción: no hay token preautorizado. (No se puede usar flujo interactivo en Render).');
@@ -3269,8 +3279,8 @@ async function safeInitGmail() {
     console.log('Inicializando Gmail API...');
     await gmailService.initialize({
       // Opcional: pásale rutas/valores si tu gmailService lo soporta
-      tokenPath: process.env.GMAIL_TOKEN_PATH, // ej. /etc/secrets/token.json
-      tokenJSON: process.env.GMAIL_TOKEN_JSON, // alternativa, JSON en env
+      tokenPath: config.gmail.tokenPath, // ej. /etc/secrets/token.json
+      tokenJSON: config.gmail.tokenJSON, // alternativa, JSON en env
     });
     console.log('Gmail API lista');
   } catch (e) {

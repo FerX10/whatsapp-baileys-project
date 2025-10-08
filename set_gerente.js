@@ -1,5 +1,5 @@
 // set_gerente.js - Script para convertir un usuario a gerente
-require('dotenv').config();
+require('./src/config/env');
 const { ejecutarConReintento } = require('./src/database/db');
 
 async function setGerente() {

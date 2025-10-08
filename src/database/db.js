@@ -1,30 +1,33 @@
 // ./src/database/db.js
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
-require('dotenv').config();
+const { config } = require('../config/env');
 
-console.log('DB Config:', {
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  passwordProvided: !!process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  port: process.env.DB_PORT
-});
+if (config.nodeEnv !== 'production') {
+  console.log('[db] Configuración (segura):', {
+    host: config.db.host,
+    user: config.db.user,
+    hasPassword: !!config.db.pass,
+    database: config.db.name,
+    port: config.db.port,
+    usingDatabaseUrl: !!config.databaseUrl
+  });
+}
 
 // === Pool compatible local / Render ===
-const isRender = !!process.env.DATABASE_URL;
+const isRender = !!config.databaseUrl;
 
 const pool = isRender
   ? new Pool({
-      connectionString: process.env.DATABASE_URL,
+      connectionString: config.databaseUrl,
       ssl: { rejectUnauthorized: false } // Render Postgres requiere SSL
     })
   : new Pool({
-      host: process.env.DB_HOST || 'localhost',
-      user: process.env.DB_USER || 'postgres',
-      password: process.env.DB_PASSWORD || '',
-      database: process.env.DB_NAME || 'whatsapp_baileys_db',
-      port: parseInt(process.env.DB_PORT || '5432', 10)
+      host: config.db.host,
+      user: config.db.user,
+      password: config.db.pass,
+      database: config.db.name,
+      port: config.db.port
     });
 
 

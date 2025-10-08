@@ -855,6 +855,18 @@ ${extrasLine ? extrasLine + '\n' : ''}${depositoLine ? depositoLine + '\n' : ''}
         }
     }
 
+    escapeRegExp(str) {
+        return String(str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    isCotizacionFlow(control = null) {
+        if (!control) return false;
+        if (control.intent === 'cotizacion') return true;
+        if (control.ready_for_copy) return true;
+        if (Array.isArray(control.copies) && control.copies.some(c => c?.keyword === 'FICHA-COTI')) return true;
+        return false;
+    }
+
 
     // ——— Helper: primer nombre limpio
     getFirstName(n) {
@@ -1686,8 +1698,11 @@ ${extrasLine ? extrasLine + '\n' : ''}${depositoLine ? depositoLine + '\n' : ''}
 
                     const group = buildGroupFromPromos(promos);
                     finalText += `\n\nPROMOS_GROUP:${JSON.stringify(group)}`;
-                } else if (!hadError) {
-                    finalText += `\n\nNo encontré promos activas que coincidan justo ahora. ¿Te comparto *otras* similares por fecha o destino, o armamos una *cotización personalizada*? ${BRAND_EMOJIS}`;
+                } else if (!hadError && !this.isCotizacionFlow(control)) {
+                    const fallbackMsg = `No encontré promos activas que coincidan justo ahora. ¿Te comparto *otras* similares por fecha o destino, o armamos una *cotización personalizada*? ${BRAND_EMOJIS}`;
+                    if (!new RegExp('No encontr[ée] promos activas', 'i').test(finalText || '')) {
+                        finalText = finalText ? `${finalText}\n\n${fallbackMsg}` : fallbackMsg;
+                    }
                 }
             } catch (e) {
                 console.warn('Promos flexible warn:', e.message);
@@ -1739,14 +1754,17 @@ ${extrasLine ? extrasLine + '\n' : ''}${depositoLine ? depositoLine + '\n' : ''}
 
                     // NO guardamos aquí - se guardará cuando el scraper envíe los resultados exitosamente
 
-                } else if ((wantsPromos || pf?.mes) && !hadErrorFlex) {
+                } else if ((wantsPromos || pf?.mes) && !hadErrorFlex && !this.isCotizacionFlow(control)) {
                     // Solo pregunta si NO tiene suficiente info para cotización
                     // Si ya tiene destino + fechas + personas, NO preguntar, dejar que genere FICHA-COTI
                     const tieneDatosCoti = pf?.destino && (pf?.mes || pf?.fecha_salida_from) &&
                                           (control?.fields_collected?.adultos || control?.fields_collected?.menores?.length);
 
                     if (!tieneDatosCoti && control?.intent !== 'cotizacion') {
-                        finalText += `\n\nNo encontré promos activas que coincidan justo ahora. ¿Te comparto *otras* similares por fecha o destino, o armamos una *cotización personalizada*? ${BRAND_EMOJIS}`;
+                        const fallbackMsg = `No encontré promos activas que coincidan justo ahora. ¿Te comparto *otras* similares por fecha o destino, o armamos una *cotización personalizada*? ${BRAND_EMOJIS}`;
+                        if (!new RegExp('No encontr[ée] promos activas', 'i').test(finalText || '')) {
+                            finalText = finalText ? `${finalText}\n\n${fallbackMsg}` : fallbackMsg;
+                        }
                     }
                 }
 
@@ -1757,6 +1775,9 @@ ${extrasLine ? extrasLine + '\n' : ''}${depositoLine ? depositoLine + '\n' : ''}
         }
 
         // Adjuntar copys (FICHA-COTI) + sugerir 2 promos afines cuando la intención sea cotización
+        let fichaCopyText = null;
+        let fichaAckMessage = null;
+
         if (control?.copies?.length) {
             console.log('[COPIES] Procesando copies:', JSON.stringify(control.copies, null, 2));
 
@@ -1765,6 +1786,12 @@ ${extrasLine ? extrasLine + '\n' : ''}${depositoLine ? depositoLine + '\n' : ''}
             for (const c of control.copies) {
                 if (c?.keyword === 'FICHA-COTI' && c?.text) {
                     console.log('[FICHA-COTI] Data recibida:', JSON.stringify(c.data, null, 2));
+                    fichaCopyText = (c.text || '').trim();
+
+                    if (!fichaAckMessage) {
+                        const nombre = this.getFirstName ? this.getFirstName(userName) : (userName || 'Cliente');
+                        fichaAckMessage = `¡Perfecto, *${nombre}*! Estoy generando tu *cotización personalizada* y en cuanto tenga resultados te los comparto. 🌊📝✨`;
+                    }
 
                     const short = Math.floor(Date.now() / 1000);
                     const ficha =
@@ -1861,8 +1888,33 @@ ${JSON.stringify(c.data || {}, null, 2)}`;
                     }
                 }
             }
+
+            if (fichaCopyText && finalText) {
+                const pattern = new RegExp(this.escapeRegExp(fichaCopyText), 'g');
+                finalText = finalText.replace(pattern, '').trim();
+            }
+            if (fichaAckMessage) {
+                const hasAck = finalText && new RegExp(this.escapeRegExp(fichaAckMessage.slice(0, 20)), 'i').test(finalText);
+                if (!hasAck) {
+                    finalText = finalText ? `${finalText}\n\n${fichaAckMessage}`.trim() : fichaAckMessage;
+                }
+            }
         }
 
+
+        if (typeof finalText === 'string') {
+            finalText = finalText.replace(/\n{3,}/g, '\n\n').trim();
+        }
+
+        const needsBudget =
+            control?.intent === 'cotizacion' &&
+            !(control?.fields_collected?.presupuesto_aprox_adulto) &&
+            !/presupuesto/i.test(finalText || '');
+        if (needsBudget) {
+            const nombre = this.getFirstName ? this.getFirstName(userName) : (userName || 'Cliente');
+            const budgetPrompt = `¿Tienes un presupuesto aproximado por adulto para ajustarnos mejor, *${nombre}*? 💰🌴`;
+            finalText = finalText ? `${finalText}\n\n${budgetPrompt}` : budgetPrompt;
+        }
 
         finalText = this.ensurePersonalizedGreeting(finalText, userName);
         return (finalText || '').trim();

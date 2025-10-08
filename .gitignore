@@ -1,4 +1,5 @@
 node_modules
+
 # Evitar nombres reservados en Windows
 nul
 con
@@ -23,19 +24,13 @@ lpt7
 lpt8
 lpt9
 
-# Secrets
+# Secrets y archivos de entorno
 .env
 .env.*
+*.env
+.env.local
 *.local.json
-# Secrets (no subir)
-.env
-.env.*
-*.local.json
-# Ignore secrets and env files
-.env
-.env.*
-*.local.json
-# Secrets
-.env
 token.json
-*.local.json
+
+# Directorios generados en runtime
+/uploads

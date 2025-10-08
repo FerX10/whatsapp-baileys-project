@@ -1,5 +1,5 @@
 // migrate_roles.js - Script para migrar el sistema de roles
-require('dotenv').config();
+require('./src/config/env');
 const { ejecutarConReintento } = require('./src/database/db');
 
 async function migrate() {
