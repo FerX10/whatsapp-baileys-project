@@ -3384,9 +3384,10 @@ async function startServer() {
     process.exit(1);
   }
 
-  // 3) LEVANTAR HTTP YA MISMO (para que Render detecte el puerto)
-  server.listen(PORT, () => {
-    console.log(`Servidor escuchando en ${PORT} (${PUBLIC_URL})`);
+  // 3) LEVANTAR HTTP YA MISMO (para que Railway detecte el puerto)
+  const HOST = '0.0.0.0'; // Necesario para Railway/Docker
+  server.listen(PORT, HOST, () => {
+    console.log(`Servidor escuchando en ${HOST}:${PORT} (${PUBLIC_URL})`);
   });
 
   // 4) Inicializaciones NO críticas en background (no bloquean el arranque)
