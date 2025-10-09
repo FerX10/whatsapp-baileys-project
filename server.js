@@ -120,7 +120,8 @@ app.get('/api/whatsapp/qr', authenticateToken, requireManager, async (req, res) 
 });
 
 // GET /whatsapp-connection - Página de conexión WhatsApp (solo gerentes)
-app.get('/whatsapp-connection', authenticateToken, requireManager, (req, res) => {
+// La verificación de autenticación se hace en el cliente (whatsapp-connection.html)
+app.get('/whatsapp-connection', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'whatsapp-connection.html'));
 });
 
