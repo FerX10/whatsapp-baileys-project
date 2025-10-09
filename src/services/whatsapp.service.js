@@ -58,6 +58,32 @@ class WhatsAppService {
     try {
       console.log('Iniciando servicio de WhatsApp...');
 
+      // En producción, limpiar sesión corrupta automáticamente
+      const isProd = process.env.NODE_ENV === 'production';
+      if (isProd) {
+        const fs = require('fs');
+        const path = require('path');
+        const authPath = path.join(process.cwd(), this.AUTH_FOLDER);
+
+        // Solo limpiar si existe y tiene credenciales corruptas
+        if (fs.existsSync(authPath)) {
+          try {
+            const credsFile = path.join(authPath, 'creds.json');
+            if (fs.existsSync(credsFile)) {
+              const creds = JSON.parse(fs.readFileSync(credsFile, 'utf-8'));
+              // Si hay credenciales pero está deslogueado, limpiar
+              if (creds && !creds.me) {
+                console.log('⚠️ Limpiando sesión corrupta...');
+                fs.rmSync(authPath, { recursive: true, force: true });
+              }
+            }
+          } catch (e) {
+            console.log('⚠️ Error verificando credenciales, limpiando sesión...');
+            fs.rmSync(authPath, { recursive: true, force: true });
+          }
+        }
+      }
+
       const { state, saveCreds } = await useMultiFileAuthState(this.AUTH_FOLDER);
       const { version } = await fetchLatestBaileysVersion();
 
@@ -87,7 +113,26 @@ class WhatsAppService {
         if (connection === 'close') {
           const statusCode = lastDisconnect?.error?.output?.statusCode;
           if (statusCode === DisconnectReason.loggedOut) {
-            console.log('Sesión cerrada. Se requiere un nuevo escaneo de QR.');
+            console.log('⚠️ Sesión cerrada (logged out). Limpiando credenciales...');
+            this.ready = false;
+            // Limpiar credenciales corruptas
+            const fs = require('fs');
+            const path = require('path');
+            const authPath = path.join(process.cwd(), this.AUTH_FOLDER);
+            if (fs.existsSync(authPath)) {
+              try {
+                fs.rmSync(authPath, { recursive: true, force: true });
+                console.log('✅ Credenciales eliminadas. Reiniciando para generar nuevo QR...');
+              } catch (e) {
+                console.error('Error eliminando credenciales:', e);
+              }
+            }
+            // Reintentar una vez con sesión limpia
+            if (this.reconnectAttempts === 0) {
+              this.reconnectAttempts++;
+              await new Promise((res) => setTimeout(res, 2000));
+              await this.initialize();
+            }
             return;
           }
           if (this.reconnectAttempts < this.maxReconnectAttempts) {
