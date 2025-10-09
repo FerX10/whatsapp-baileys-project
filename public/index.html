@@ -4501,6 +4501,20 @@
         };
         dropdownMenu.appendChild(pagosBtn);
 
+        // --- Conexión WhatsApp (solo gerentes) ---
+        if (userType === 'gerente') {
+          const whatsappBtn = document.createElement('button');
+          whatsappBtn.textContent = '📱 Conexión WhatsApp';
+          whatsappBtn.className = 'dropdown-item';
+          whatsappBtn.style.cssText = 'background: #25D366; color: white; font-weight: 600;';
+          whatsappBtn.onclick = (e) => {
+            e.stopPropagation();
+            window.location.href = '/whatsapp-connection';
+            dropdownMenu.style.display = 'none';
+          };
+          dropdownMenu.appendChild(whatsappBtn);
+        }
+
         // Cerrar Sesión
         const logoutButton = document.createElement('button');
         logoutButton.textContent = 'Cerrar Sesión';

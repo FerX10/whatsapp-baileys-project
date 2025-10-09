@@ -75,6 +75,54 @@ app.use(express.urlencoded({ extended: true }));
 
 app.get('/healthz', (req, res) => res.status(200).json({ ok: true }));
 
+// Middleware para verificar que el usuario es gerente
+function requireManager(req, res, next) {
+  if (req.user && req.user.tipo_usuario === 'gerente') {
+    return next();
+  }
+  return res.status(403).json({
+    success: false,
+    message: 'Acceso denegado. Solo gerentes pueden acceder a esta función.'
+  });
+}
+
+// ========================================
+// ENDPOINTS DE CONEXIÓN WHATSAPP (QR)
+// ========================================
+
+// GET /whatsapp-qr - Obtener el QR actual (solo gerentes)
+app.get('/api/whatsapp/qr', authenticateToken, requireManager, async (req, res) => {
+  try {
+    const whatsappService = req.app.get('whatsappService');
+
+    if (!whatsappService) {
+      return res.status(503).json({
+        success: false,
+        message: 'Servicio de WhatsApp no disponible'
+      });
+    }
+
+    // El QR se emite vía Socket.IO, este endpoint es solo para verificar estado
+    res.json({
+      success: true,
+      connected: whatsappService.isReady(),
+      message: whatsappService.isReady()
+        ? 'WhatsApp conectado'
+        : 'Esperando escaneo de QR. Escucha el evento Socket.IO "whatsappQR"'
+    });
+  } catch (error) {
+    console.error('Error en /api/whatsapp/qr:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// GET /whatsapp-connection - Página de conexión WhatsApp (solo gerentes)
+app.get('/whatsapp-connection', authenticateToken, requireManager, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'whatsapp-connection.html'));
+});
 
 // CONFIGURACIÓN DE MULTER para subir archivos
 const storage = multer.diskStorage({
