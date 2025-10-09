@@ -152,16 +152,26 @@ app.post('/api/whatsapp/reset-session', authenticateToken, requireManager, async
       console.log('✅ Sesión de WhatsApp eliminada');
     }
 
-    // Reiniciar servicio de WhatsApp
+    // Reiniciar servicio de WhatsApp completamente
     const whatsappService = req.app.get('whatsappService');
     if (whatsappService) {
       console.log('🔄 Reiniciando servicio de WhatsApp...');
-      // El servicio se reiniciará automáticamente en el próximo ciclo
+      whatsappService.reconnectAttempts = 0; // Reset contador
+      whatsappService.ready = false;
+
+      // Reinicializar
+      setTimeout(async () => {
+        try {
+          await whatsappService.initialize();
+        } catch (e) {
+          console.error('Error reiniciando WhatsApp:', e);
+        }
+      }, 1000);
     }
 
     res.json({
       success: true,
-      message: 'Sesión eliminada. Recarga la página para obtener un nuevo QR.'
+      message: 'Sesión eliminada. El servicio se está reiniciando...'
     });
   } catch (error) {
     console.error('Error al resetear sesión:', error);
