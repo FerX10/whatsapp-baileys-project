@@ -145,12 +145,34 @@
             border-radius: 8px;
             font-weight: 600;
             transition: all 0.3s;
+            border: none;
+            cursor: pointer;
         }
 
         .btn-back:hover {
             background: #5568d3;
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-reset {
+            display: inline-block;
+            margin-top: 20px;
+            margin-left: 10px;
+            padding: 12px 30px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-reset:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(220, 53, 69, 0.4);
         }
 
         .success-message {
@@ -206,13 +228,43 @@
             </ol>
         </div>
 
-        <a href="/" class="btn-back">← Volver al Panel</a>
+        <div>
+            <a href="/" class="btn-back">← Volver al Panel</a>
+            <button class="btn-reset" onclick="resetSession()">🔄 Resetear Sesión</button>
+        </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const token = sessionStorage.getItem('token');
         const userType = sessionStorage.getItem('userType');
+
+        async function resetSession() {
+            if (!confirm('¿Estás seguro de que deseas eliminar la sesión actual de WhatsApp? Necesitarás escanear un nuevo QR.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/whatsapp/reset-session', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert(data.message);
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error al resetear sesión:', error);
+                alert('Error al conectar con el servidor');
+            }
+        }
 
         // Verificar que sea gerente
         if (!token || userType !== 'gerente') {

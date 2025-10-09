@@ -77,7 +77,7 @@ app.get('/healthz', (req, res) => res.status(200).json({ ok: true }));
 
 // Middleware para verificar que el usuario es gerente
 function requireManager(req, res, next) {
-  if (req.user && req.user.tipo_usuario === 'gerente') {
+  if (req.user && req.user.userType === 'gerente') {
     return next();
   }
   return res.status(403).json({
@@ -123,6 +123,38 @@ app.get('/api/whatsapp/qr', authenticateToken, requireManager, async (req, res) 
 // La verificación de autenticación se hace en el cliente (whatsapp-connection.html)
 app.get('/whatsapp-connection', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'whatsapp-connection.html'));
+});
+
+// POST /api/whatsapp/reset-session - Eliminar sesión de WhatsApp (solo gerentes)
+app.post('/api/whatsapp/reset-session', authenticateToken, requireManager, async (req, res) => {
+  try {
+    const authFolder = process.env.AUTH_FOLDER || 'auth_info_baileys';
+    const authPath = path.join(__dirname, authFolder);
+
+    // Eliminar carpeta de autenticación
+    if (require('fs').existsSync(authPath)) {
+      await fsPromises.rm(authPath, { recursive: true, force: true });
+      console.log('✅ Sesión de WhatsApp eliminada');
+    }
+
+    // Reiniciar servicio de WhatsApp
+    const whatsappService = req.app.get('whatsappService');
+    if (whatsappService) {
+      console.log('🔄 Reiniciando servicio de WhatsApp...');
+      // El servicio se reiniciará automáticamente en el próximo ciclo
+    }
+
+    res.json({
+      success: true,
+      message: 'Sesión eliminada. Recarga la página para obtener un nuevo QR.'
+    });
+  } catch (error) {
+    console.error('Error al resetear sesión:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
 });
 
 // CONFIGURACIÓN DE MULTER para subir archivos
