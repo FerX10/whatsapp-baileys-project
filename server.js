@@ -38,10 +38,25 @@ const {
 
 const app = express();
 const server = createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
 const PORT = config.port;
 const JWT_SECRET = 'tu_secreto_jwt_muy_seguro';
 const BASE_URL = config.baseUrl || process.env.NGROK_URL || `http://localhost:${PORT}`;
+
+// ===== Configuración de Socket.IO =====
+io.on('connection', (socket) => {
+  console.log('Cliente Socket.IO conectado:', socket.id);
+
+  socket.on('disconnect', () => {
+    console.log('Cliente Socket.IO desconectado:', socket.id);
+  });
+});
+
 // ===== Logger minimalista por request (JSON una sola línea) =====
 const { randomUUID } = require('crypto');
 function appLog(level, msg, meta = {}) {

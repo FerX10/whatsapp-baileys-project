@@ -78,8 +78,10 @@ class WhatsAppService {
 
         if (qr) {
           const qrDataURL = await qrcode.toDataURL(qr);
-          console.log('Nuevo QR generado');
+          console.log('📱 Nuevo QR generado');
+          console.log('📡 Emitiendo evento whatsappQR via Socket.IO...');
           this.io.emit('whatsappQR', { qr: qrDataURL, timestamp: Date.now() });
+          console.log('✅ Evento whatsappQR emitido correctamente');
         }
 
         if (connection === 'close') {

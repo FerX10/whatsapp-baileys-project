@@ -276,6 +276,19 @@
             auth: { token }
         });
 
+        // Logs de conexión Socket.IO
+        socket.on('connect', () => {
+            console.log('✅ Socket.IO conectado:', socket.id);
+        });
+
+        socket.on('disconnect', (reason) => {
+            console.log('❌ Socket.IO desconectado:', reason);
+        });
+
+        socket.on('connect_error', (error) => {
+            console.error('🚫 Error de conexión Socket.IO:', error);
+        });
+
         const statusBadge = document.getElementById('statusBadge');
         const qrContainer = document.getElementById('qrContainer');
 
