@@ -291,6 +291,8 @@
 
         const statusBadge = document.getElementById('statusBadge');
         const qrContainer = document.getElementById('qrContainer');
+        let qrExpirationTimer = null;
+        let countdownInterval = null;
 
         // Verificar estado inicial
         async function checkStatus() {
@@ -316,7 +318,7 @@
 
         // Escuchar eventos de QR
         socket.on('whatsappQR', (data) => {
-            console.log('QR recibido:', data);
+            console.log('📱 QR recibido:', data);
             showQR(data.qr);
         });
 
@@ -330,18 +332,60 @@
         });
 
         function showQR(qrDataURL) {
+            // Limpiar timers anteriores
+            if (qrExpirationTimer) clearTimeout(qrExpirationTimer);
+            if (countdownInterval) clearInterval(countdownInterval);
+
             statusBadge.className = 'status-badge status-waiting';
             statusBadge.textContent = '📲 Escanea el código QR';
 
+            // Crear contenedor con countdown
             qrContainer.innerHTML = `
                 <img src="${qrDataURL}" alt="QR Code" class="qr-image">
-                <p style="margin-top: 15px; color: #666;">
-                    El código QR expira en 60 segundos
-                </p>
+                <div style="margin-top: 15px;">
+                    <p style="color: #666; font-size: 16px; font-weight: 600;">
+                        ⏱️ Expira en: <span id="countdown" style="color: #667eea;">60</span> segundos
+                    </p>
+                    <p style="color: #999; font-size: 12px; margin-top: 5px;">
+                        Se generará un nuevo QR automáticamente
+                    </p>
+                </div>
             `;
+
+            // Countdown visual
+            let secondsLeft = 60;
+            const countdownElement = document.getElementById('countdown');
+
+            countdownInterval = setInterval(() => {
+                secondsLeft--;
+                if (countdownElement) {
+                    countdownElement.textContent = secondsLeft;
+
+                    // Cambiar color según urgencia
+                    if (secondsLeft <= 10) {
+                        countdownElement.style.color = '#dc3545';
+                    } else if (secondsLeft <= 30) {
+                        countdownElement.style.color = '#ffc107';
+                    }
+                }
+
+                if (secondsLeft <= 0) {
+                    clearInterval(countdownInterval);
+                    showWaiting();
+                }
+            }, 1000);
+
+            // Timer para mostrar "esperando nuevo QR" después de 60s
+            qrExpirationTimer = setTimeout(() => {
+                showWaiting();
+            }, 60000);
         }
 
         function showConnected() {
+            // Limpiar timers
+            if (qrExpirationTimer) clearTimeout(qrExpirationTimer);
+            if (countdownInterval) clearInterval(countdownInterval);
+
             statusBadge.className = 'status-badge status-connected';
             statusBadge.textContent = '✅ WhatsApp Conectado';
 
@@ -357,6 +401,10 @@
         }
 
         function showDisconnected() {
+            // Limpiar timers
+            if (qrExpirationTimer) clearTimeout(qrExpirationTimer);
+            if (countdownInterval) clearInterval(countdownInterval);
+
             statusBadge.className = 'status-badge status-disconnected';
             statusBadge.textContent = '❌ Desconectado';
 
@@ -369,13 +417,20 @@
         }
 
         function showWaiting() {
+            // Limpiar timers
+            if (qrExpirationTimer) clearTimeout(qrExpirationTimer);
+            if (countdownInterval) clearInterval(countdownInterval);
+
             statusBadge.className = 'status-badge status-waiting';
             statusBadge.textContent = '⏳ Esperando QR';
 
             qrContainer.innerHTML = `
                 <div class="loading">
                     <div class="spinner"></div>
-                    <p>Esperando código QR...</p>
+                    <p>Esperando nuevo código QR...</p>
+                    <p style="margin-top: 10px; color: #999; font-size: 12px;">
+                        El QR anterior expiró. Se generará uno nuevo automáticamente.
+                    </p>
                 </div>
             `;
         }
@@ -392,8 +447,8 @@
         // Inicializar
         checkStatus();
 
-        // Verificar estado cada 10 segundos
-        setInterval(checkStatus, 10000);
+        // Verificar estado inicial solo una vez
+        // El resto se maneja via eventos Socket.IO
     </script>
 </body>
 </html>
