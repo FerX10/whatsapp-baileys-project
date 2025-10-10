@@ -117,13 +117,34 @@ app.get('/api/whatsapp/qr', authenticateToken, requireManager, async (req, res) 
       });
     }
 
-    // El QR se emite vía Socket.IO, este endpoint es solo para verificar estado
+    // Si está conectado
+    if (whatsappService.isReady()) {
+      return res.json({
+        success: true,
+        connected: true,
+        message: 'WhatsApp conectado'
+      });
+    }
+
+    // Si hay un QR reciente, enviarlo
+    const lastQR = whatsappService.getLastQR();
+    if (lastQR) {
+      return res.json({
+        success: true,
+        connected: false,
+        hasQR: true,
+        qr: lastQR.qr,
+        timestamp: lastQR.timestamp,
+        message: 'QR disponible'
+      });
+    }
+
+    // No hay QR disponible
     res.json({
       success: true,
-      connected: whatsappService.isReady(),
-      message: whatsappService.isReady()
-        ? 'WhatsApp conectado'
-        : 'Esperando escaneo de QR. Escucha el evento Socket.IO "whatsappQR"'
+      connected: false,
+      hasQR: false,
+      message: 'Esperando generación de QR...'
     });
   } catch (error) {
     console.error('Error en /api/whatsapp/qr:', error);

@@ -45,10 +45,25 @@ class WhatsAppService {
     this.messageQueue = new Map();   // { phone: { messages:[], lastMessageTime, processing, userName } }
     this.WAIT_TIME = 35000;          // 35 segundos (para agrupar mensajes del usuario)
     this.fichaCotiProcessor = new FichaCotiProcessor(this);
+
+    // Guardar último QR generado
+    this.lastQR = null;
+    this.lastQRTimestamp = null;
   }
 
   isReady() {
     return this.ready;
+  }
+
+  getLastQR() {
+    // Solo devolver QR si tiene menos de 90 segundos
+    if (this.lastQR && this.lastQRTimestamp) {
+      const age = Date.now() - this.lastQRTimestamp;
+      if (age < 90000) {
+        return { qr: this.lastQR, timestamp: this.lastQRTimestamp };
+      }
+    }
+    return null;
   }
 
   // -----------------------------------------------------------
@@ -94,8 +109,9 @@ class WhatsAppService {
         browser: ['Chrome (Linux)', '', ''],
         version,
         connectTimeoutMs: 60000,
-        qrTimeout: 60000,
-        defaultQueryTimeoutMs: 60000
+        qrTimeout: 90000, // 90 segundos para el QR
+        defaultQueryTimeoutMs: 60000,
+        retryRequestDelayMs: 5000
       });
 
       // Estados de conexión
@@ -104,10 +120,20 @@ class WhatsAppService {
 
         if (qr) {
           const qrDataURL = await qrcode.toDataURL(qr);
+          const timestamp = Date.now();
+
+          // Guardar último QR
+          this.lastQR = qrDataURL;
+          this.lastQRTimestamp = timestamp;
+
           console.log('📱 Nuevo QR generado');
           console.log('📡 Emitiendo evento whatsappQR via Socket.IO...');
-          this.io.emit('whatsappQR', { qr: qrDataURL, timestamp: Date.now() });
+
+          // Emitir a todos los clientes conectados
+          this.io.emit('whatsappQR', { qr: qrDataURL, timestamp });
+
           console.log('✅ Evento whatsappQR emitido correctamente');
+          console.log(`👥 Clientes conectados: ${this.io.engine.clientsCount}`);
         }
 
         if (connection === 'close') {

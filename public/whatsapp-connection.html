@@ -307,6 +307,10 @@
 
                 if (data.connected) {
                     showConnected();
+                } else if (data.hasQR && data.qr) {
+                    // Hay un QR disponible, mostrarlo inmediatamente
+                    console.log('📱 QR disponible desde el servidor');
+                    showQR(data.qr, data.timestamp);
                 } else {
                     showWaiting();
                 }
@@ -331,7 +335,7 @@
             showDisconnected();
         });
 
-        function showQR(qrDataURL) {
+        function showQR(qrDataURL, qrTimestamp = Date.now()) {
             // Limpiar timers anteriores
             if (qrExpirationTimer) clearTimeout(qrExpirationTimer);
             if (countdownInterval) clearInterval(countdownInterval);
@@ -339,12 +343,25 @@
             statusBadge.className = 'status-badge status-waiting';
             statusBadge.textContent = '📲 Escanea el código QR';
 
+            // Calcular segundos restantes (90 segundos desde que se generó)
+            const age = Date.now() - qrTimestamp;
+            const maxAge = 90000; // 90 segundos
+            let secondsLeft = Math.max(0, Math.floor((maxAge - age) / 1000));
+
+            console.log(`⏱️ QR age: ${age}ms, segundos restantes: ${secondsLeft}`);
+
+            // Si el QR ya expiró, mostrar "esperando"
+            if (secondsLeft <= 0) {
+                showWaiting();
+                return;
+            }
+
             // Crear contenedor con countdown
             qrContainer.innerHTML = `
                 <img src="${qrDataURL}" alt="QR Code" class="qr-image">
                 <div style="margin-top: 15px;">
                     <p style="color: #666; font-size: 16px; font-weight: 600;">
-                        ⏱️ Expira en: <span id="countdown" style="color: #667eea;">60</span> segundos
+                        ⏱️ Expira en: <span id="countdown" style="color: #667eea;">${secondsLeft}</span> segundos
                     </p>
                     <p style="color: #999; font-size: 12px; margin-top: 5px;">
                         Se generará un nuevo QR automáticamente
@@ -353,7 +370,6 @@
             `;
 
             // Countdown visual
-            let secondsLeft = 60;
             const countdownElement = document.getElementById('countdown');
 
             countdownInterval = setInterval(() => {
@@ -375,10 +391,10 @@
                 }
             }, 1000);
 
-            // Timer para mostrar "esperando nuevo QR" después de 60s
+            // Timer para mostrar "esperando nuevo QR" después del tiempo restante
             qrExpirationTimer = setTimeout(() => {
                 showWaiting();
-            }, 60000);
+            }, secondsLeft * 1000);
         }
 
         function showConnected() {
