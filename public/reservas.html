@@ -262,9 +262,45 @@
         const userType = sessionStorage.getItem('userType');
         const userId = sessionStorage.getItem('userId');
 
-        if (!token) {
+        // Verificar autenticación y expiración del token
+        function checkAuth() {
+            if (!token) {
+                sessionStorage.clear();
+                window.location.href = '/login';
+                return false;
+            }
+
+            // Verificar si el token está expirado
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                const expirationTime = payload.exp * 1000;
+                const currentTime = Date.now();
+
+                if (currentTime >= expirationTime) {
+                    console.log('Token expirado, redirigiendo a login...');
+                    sessionStorage.clear();
+                    window.location.href = '/login';
+                    return false;
+                }
+            } catch (error) {
+                console.error('Error al verificar el token:', error);
+                sessionStorage.clear();
+                window.location.href = '/login';
+                return false;
+            }
+
+            return true;
+        }
+
+        // Verificar token al cargar
+        if (!checkAuth()) {
             window.location.href = '/login';
         }
+
+        // Verificar token cada 30 segundos
+        setInterval(() => {
+            checkAuth();
+        }, 30000);
 
         // Ocultar enlaces según rol
         document.addEventListener('DOMContentLoaded', () => {

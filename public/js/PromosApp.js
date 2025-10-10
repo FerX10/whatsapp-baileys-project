@@ -22,10 +22,51 @@
     localStorage.getItem('token') ||
     '';
 
+  // Verificar autenticación y expiración del token
+  const checkAuth = () => {
+    const token = getToken();
+    if (!token) {
+      sessionStorage.clear();
+      window.location.href = '/login';
+      return false;
+    }
+
+    // Verificar si el token está expirado
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const expirationTime = payload.exp * 1000;
+      const currentTime = Date.now();
+
+      if (currentTime >= expirationTime) {
+        console.log('Token expirado, redirigiendo a login...');
+        sessionStorage.clear();
+        window.location.href = '/login';
+        return false;
+      }
+    } catch (error) {
+      console.error('Error al verificar el token:', error);
+      sessionStorage.clear();
+      window.location.href = '/login';
+      return false;
+    }
+
+    return true;
+  };
+
   const authHeaders = () => {
     const t = getToken();
     return { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}) };
   };
+
+  // Verificar token al cargar
+  if (!checkAuth()) {
+    return;
+  }
+
+  // Verificar token cada 30 segundos
+  setInterval(() => {
+    checkAuth();
+  }, 30000);
 
   const fetchJSON = async (url, opts = {}) => {
     const res = await fetch(url, opts);

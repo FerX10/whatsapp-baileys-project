@@ -166,13 +166,49 @@
         const userName = sessionStorage.getItem('userName');
         const userType = sessionStorage.getItem('userType');
 
-        if (!token || (userType !== 'admin' && userType !== 'gerente')) {
+        // Verificar autenticación y expiración del token
+        function checkAuth() {
+            if (!token) {
+                sessionStorage.clear();
+                window.location.href = '/login';
+                return false;
+            }
+
+            // Verificar si el token está expirado
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                const expirationTime = payload.exp * 1000;
+                const currentTime = Date.now();
+
+                if (currentTime >= expirationTime) {
+                    console.log('Token expirado, redirigiendo a login...');
+                    sessionStorage.clear();
+                    window.location.href = '/login';
+                    return false;
+                }
+            } catch (error) {
+                console.error('Error al verificar el token:', error);
+                sessionStorage.clear();
+                window.location.href = '/login';
+                return false;
+            }
+
+            return true;
+        }
+
+        // Verificar token y permisos
+        if (!checkAuth() || (userType !== 'admin' && userType !== 'gerente')) {
             alert('Acceso denegado. Solo administradores y gerentes pueden gestionar usuarios.');
             window.location.href = '/login';
         }
 
         const esGerente = userType === 'gerente';
         document.getElementById('user-name').textContent = userName || 'Usuario';
+
+        // Verificar token cada 30 segundos
+        setInterval(() => {
+            checkAuth();
+        }, 30000);
 
         function authHeaders() {
             return {

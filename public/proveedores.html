@@ -193,15 +193,46 @@
     const token = sessionStorage.getItem('token') || localStorage.getItem('token');
     const userType = sessionStorage.getItem('userType');
 
-    // Verificar que sea admin o gerente
-    if (userType !== 'admin' && userType !== 'gerente') {
-      alert('Acceso denegado. Solo administradores y gerentes pueden gestionar proveedores.');
-      window.location.href = '/';
+    // Verificar autenticación y expiración del token
+    function checkAuth() {
+      if (!token) {
+        sessionStorage.clear();
+        window.location.href = '/login';
+        return false;
+      }
+
+      // Verificar si el token está expirado
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const expirationTime = payload.exp * 1000;
+        const currentTime = Date.now();
+
+        if (currentTime >= expirationTime) {
+          console.log('Token expirado, redirigiendo a login...');
+          sessionStorage.clear();
+          window.location.href = '/login';
+          return false;
+        }
+      } catch (error) {
+        console.error('Error al verificar el token:', error);
+        sessionStorage.clear();
+        window.location.href = '/login';
+        return false;
+      }
+
+      return true;
     }
 
-    if (!token) {
+    // Verificar token y permisos
+    if (!checkAuth() || (userType !== 'admin' && userType !== 'gerente')) {
+      alert('Acceso denegado. Solo administradores y gerentes pueden gestionar proveedores.');
       window.location.href = '/login';
     }
+
+    // Verificar token cada 30 segundos
+    setInterval(() => {
+      checkAuth();
+    }, 30000);
 
     let proveedores = [];
 

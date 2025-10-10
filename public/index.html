@@ -3731,9 +3731,30 @@
     function checkAuth() {
       const token = sessionStorage.getItem('token');
       if (!token) {
+        sessionStorage.clear();
         window.location.href = '/login';
         return false;
       }
+
+      // Verificar si el token está expirado
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const expirationTime = payload.exp * 1000; // Convertir a milisegundos
+        const currentTime = Date.now();
+
+        if (currentTime >= expirationTime) {
+          console.log('Token expirado, redirigiendo a login...');
+          sessionStorage.clear();
+          window.location.href = '/login';
+          return false;
+        }
+      } catch (error) {
+        console.error('Error al verificar el token:', error);
+        sessionStorage.clear();
+        window.location.href = '/login';
+        return false;
+      }
+
       return true;
     }
 
@@ -6383,11 +6404,24 @@
         console.log('Configurando event listeners globales...');
         configureGlobalEventListeners();
 
+        console.log('Iniciando verificación periódica del token...');
+        startTokenValidation();
+
         console.log('Aplicación inicializada correctamente');
       } catch (error) {
         console.error('Error en la inicialización:', error);
         showError('Error al iniciar la aplicación: ' + error.message);
       }
+    }
+
+    /**
+     * Verifica periódicamente si el token sigue siendo válido
+     */
+    function startTokenValidation() {
+      // Verificar cada 30 segundos si el token sigue siendo válido
+      setInterval(() => {
+        checkAuth();
+      }, 30000); // 30 segundos
     }
 
     function checkDOMElements() {

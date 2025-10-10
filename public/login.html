@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - WhatsApp Izland Tours</title>
+    <title>Login - Agencia de Viaje Olas y Raices</title>
 
     <link href="/css/login.css" rel="stylesheet">
-    
+
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -14,9 +14,9 @@
     <div class="login-container">
         <div class="login-header">
             <div class="logo-container">
-                <img src="public/img/PERFIL.jpg" alt="Izland Tours Logo">
+                <img src="/img/PERFIL.jpg" alt="Agencia de Viaje Olas y Raices Logo">
             </div>
-            <h1>WhatsApp Agencia de Viajes</h1>
+            <h1>Agencia de Viaje Olas y Raices</h1>
             <p>Iniciar Sesión</p>
         </div>
         <form id="loginForm">
@@ -95,14 +95,20 @@
                         }, 500);
                     } else {
                     const errorMessage = document.getElementById('errorMessage');
+                    const passwordInput = document.getElementById('password');
+
                     errorMessage.textContent = data.message;
                     errorMessage.style.display = 'block';
-                    
+
+                    // Preseleccionar el campo de contraseña para que el usuario pueda reescribirla
+                    passwordInput.select();
+                    passwordInput.focus();
+
                     // Reiniciar la animación de shake
                     errorMessage.style.animation = 'none';
                     errorMessage.offsetHeight; // Trigger reflow
                     errorMessage.style.animation = 'shake 0.5s ease-out';
-                    
+
                     setTimeout(() => {
                         errorMessage.style.opacity = '0';
                         setTimeout(() => {
