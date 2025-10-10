@@ -950,6 +950,13 @@
             <a href="/reservas" className="inline-flex items-center rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-sm text-blue-800 hover:bg-blue-100">📅 Reservas</a>
           </div>
           <div className="flex gap-2">
+            <a
+              href="/promo-finder.html"
+              target="_blank"
+              className="rounded-xl border-2 border-green-300 bg-green-50 px-4 py-2 text-sm font-medium text-green-700 shadow-sm hover:bg-green-100"
+            >
+              🎯 PromoFinder
+            </a>
             <button
               className="rounded-xl border-2 border-purple-300 bg-purple-50 px-4 py-2 text-sm font-medium text-purple-700 shadow-sm hover:bg-purple-100"
               onClick={() => setOpenBulk(true)}

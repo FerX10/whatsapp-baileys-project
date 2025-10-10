@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Promo Finder - NaturLeon</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .header p {
+            opacity: 0.8;
+            font-size: 1.1em;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+        }
+
+        .form-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 15px;
+            border-left: 4px solid #3498db;
+        }
+
+        .form-section h3 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+        }
+
+        .form-section h3::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: #3498db;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #34495e;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e6ed;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+
+        .checkbox-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+            background: white;
+            border: 2px solid #e0e6ed;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .checkbox-item:hover {
+            border-color: #3498db;
+            background: #f8f9ff;
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            width: auto;
+            margin-right: 10px;
+            transform: scale(1.2);
+        }
+
+        .checkbox-item.checked {
+            background: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+
+        .week-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .week-btn {
+            padding: 12px 8px;
+            border: 2px solid #e0e6ed;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .week-btn:hover {
+            border-color: #3498db;
+            background: #f8f9ff;
+        }
+
+        .week-btn.selected {
+            background: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+
+        .search-btn {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.2em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+        }
+
+        .search-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(52, 152, 219, 0.3);
+        }
+
+        .search-btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .loading-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #e0e6ed;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e6ed;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3498db, #2980b9);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-overview {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        .progress-percentage {
+            font-size: 2.5rem;
+            font-weight: 600;
+            color: #2c3e50;
+            min-width: 90px;
+        }
+
+        .progress-time-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .progress-time {
+            font-size: 0.95rem;
+            color: #4a5568;
+        }
+
+        .progress-time.muted {
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+
+        .loading-status {
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 1rem;
+        }
+
+        .loading-details {
+            margin-top: 15px;
+            font-size: 0.9rem;
+            color: #64748b;
+        }
+
+        .results-section {
+            margin-top: 40px;
+            display: none;
+        }
+
+        .results-header {
+            background: #27ae60;
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .results-content {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 15px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .status-message {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .info-card {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .info-card h4 {
+            color: #1976d2;
+            margin-bottom: 8px;
+        }
+
+        .info-card p {
+            margin: 5px 0;
+            color: #424242;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 Promo Finder</h1>
+            <p>Buscador inteligente de promociones NaturLeon</p>
+        </div>
+
+        <div class="content">
+            <!-- Información de configuración fija -->
+            <!-- Sección de Pasajeros PERSONALIZABLE -->
+            <div class="form-section">
+                <h3>👥 Configuración de Pasajeros</h3>
+
+                <!-- Campo de Adultos -->
+                <div class="form-group">
+                    <label for="numAdultos">Número de adultos (1-8):</label>
+                    <input type="number" id="numAdultos" name="numAdultos" min="1" max="8" value="2" required>
+                </div>
+
+                <!-- Campo de Menores -->
+                <div class="form-group">
+                    <label for="numMenores">Número de menores (0-4):</label>
+                    <input type="number" id="numMenores" name="numMenores" min="0" max="4" value="1" required>
+                    <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                        ⚠️ Si seleccionas 4 menores, se recomienda dividir en 2 cotizaciones
+                    </p>
+                </div>
+
+                <!-- Contenedor dinámico para edades -->
+                <div id="edadesMenoresContainer" style="display: none;">
+                    <label>Edades de los menores (0-17 años):</label>
+                    <div id="edadesMenoresInputs"></div>
+                </div>
+            </div>
+            <form id="searchForm">
+                <div class="form-grid">
+                    <!-- Sección de Fechas -->
+                    <div class="form-section">
+                        <h3>📅 Configuración de Fechas</h3>
+
+                        <div class="form-group">
+                            <label for="searchType">Tipo de búsqueda:</label>
+                            <select id="searchType" name="searchType">
+                                <option value="fromNow">Desde ahora (próximas semanas)</option>
+                                <option value="specificMonth">Mes específico</option>
+                            </select>
+                        </div>
+
+                        <div id="specificMonthFields" style="display: none;">
+                            <div class="form-group">
+                                <label for="month">Mes:</label>
+                                <select id="month" name="month">
+                                    <option value="">Seleccionar mes</option>
+                                    <option value="1">Enero</option>
+                                    <option value="2">Febrero</option>
+                                    <option value="3">Marzo</option>
+                                    <option value="4">Abril</option>
+                                    <option value="5">Mayo</option>
+                                    <option value="6">Junio</option>
+                                    <option value="7">Julio</option>
+                                    <option value="8">Agosto</option>
+                                    <option value="9">Septiembre</option>
+                                    <option value="10">Octubre</option>
+                                    <option value="11">Noviembre</option>
+                                    <option value="12">Diciembre</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="year">Año:</label>
+                                <select id="year" name="year">
+                                    <option value="">Seleccionar año</option>
+                                    <option value="2025">2025</option>
+                                    <option value="2026">2026</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="totalWeeks">Número total de semanas a generar:</label>
+                            <select id="totalWeeks" name="totalWeeks">
+                                <option value="4">4 semanas</option>
+                                <option value="6">6 semanas</option>
+                                <option value="8">8 semanas</option>
+                                <option value="12">12 semanas</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Seleccionar semanas específicas:</label>
+                            <p style="font-size: 14px; color: #666; margin-bottom: 10px;">
+                                Elige qué semanas quieres analizar (ej: semana 3 y 4 de diciembre)
+                            </p>
+                            <div id="weekSelector" class="week-selector">
+                                <!-- Se llenarán dinámicamente -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sección de Destinos y Límites -->
+                    <div class="form-section">
+                        <h3>🏖️ Destinos y Límites</h3>
+
+                        <div class="form-group">
+                            <label>Destinos a buscar:</label>
+                            <div class="checkbox-group">
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="dest_pv" name="destinos" value="Puerto Vallarta" checked>
+                                    <label for="dest_pv">Puerto Vallarta</label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="dest_ixtapa" name="destinos" value="Ixtapa" checked>
+                                    <label for="dest_ixtapa">Ixtapa</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="maxPromociones">Máximo promociones por destino/semana:</label>
+                            <select id="maxPromociones" name="maxPromociones">
+                                <option value="3">3 promociones</option>
+                                <option value="5" selected>5 promociones</option>
+                                <option value="7">7 promociones</option>
+                                <option value="10">10 promociones</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="maxOpcionesBaratas">Máximo opciones baratas por destino/semana:</label>
+                            <select id="maxOpcionesBaratas" name="maxOpcionesBaratas">
+                                <option value="3">3 opciones</option>
+                                <option value="5" selected>5 opciones</option>
+                                <option value="7">7 opciones</option>
+                                <option value="10">10 opciones</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="search-btn" id="searchBtn">
+                    🔍 Iniciar Búsqueda de Promociones
+                </button>
+            </form>
+
+            <!-- Mensajes de estado -->
+            <div id="statusMessage" class="status-message"></div>
+
+            <!-- Sección de resultados -->
+            <div id="resultsSection" class="results-section">
+                <div class="results-header">
+                    <h2>📊 Resultados de la Búsqueda</h2>
+                    <p id="resultsStats"></p>
+                </div>
+                <div id="resultsContent" class="results-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <h3>Buscando promociones...</h3>
+            <div class="progress-overview">
+                <div id="progressPercent" class="progress-percentage">0%</div>
+                <div class="progress-time-info">
+                    <p id="progressEta" class="progress-time">Tiempo estimado restante: --:--</p>
+                    <p id="progressElapsed" class="progress-time">Tiempo transcurrido: 00:00</p>
+                    <p id="progressTotal" class="progress-time muted">Tiempo estimado total: --:--</p>
+                </div>
+            </div>
+            <p id="loadingStatus" class="loading-status">Preparando busqueda...</p>
+            <div class="progress-bar">
+                <div id="progressFill" class="progress-fill"></div>
+            </div>
+            <p id="loadingDetails" class="loading-details">Analizando parametros seleccionados</p>
+        </div>
+    </div>
+
+    <script>
+        class PromoFinderUI {
+            constructor() {
+                this.selectedWeeks = new Set();
+                this.totalWeeksToGenerate = 4;
+                this.currentProgress = 0;
+                this.searchInProgress = false;
+                this.progressInterval = null;
+                this.progressConfig = null;
+                this.lastProgressPercent = 0;
+
+                // NUEVO: Estado de menores
+                this.numMenores = 1;
+                this.edadesMenores = [12]; // Edad predeterminada
+
+                this.initializeEventListeners();
+                this.generateWeekSelector();
+                this.initializeMenoresListeners(); // NUEVA función
+            }
+
+            initializeEventListeners() {
+                // Cambio de tipo de búsqueda
+                document.getElementById('searchType').addEventListener('change', (e) => {
+                    const specificFields = document.getElementById('specificMonthFields');
+                    if (e.target.value === 'specificMonth') {
+                        specificFields.style.display = 'block';
+                    } else {
+                        specificFields.style.display = 'none';
+                    }
+                    this.generateWeekSelector();
+                });
+
+                // Cambios en mes/año
+                document.getElementById('month').addEventListener('change', () => this.generateWeekSelector());
+                document.getElementById('year').addEventListener('change', () => this.generateWeekSelector());
+                document.getElementById('totalWeeks').addEventListener('change', (e) => {
+                    this.totalWeeksToGenerate = parseInt(e.target.value);
+                    this.generateWeekSelector();
+                });
+
+                // Manejo de checkboxes de destinos
+                document.querySelectorAll('input[name="destinos"]').forEach(checkbox => {
+                    checkbox.addEventListener('change', (e) => {
+                        const item = e.target.closest('.checkbox-item');
+                        if (e.target.checked) {
+                            item.classList.add('checked');
+                        } else {
+                            item.classList.remove('checked');
+                        }
+                    });
+                });
+
+                // Formulario
+                document.getElementById('searchForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.handleSearch();
+                });
+            }
+
+            generateWeekSelector() {
+                const container = document.getElementById('weekSelector');
+                const searchType = document.getElementById('searchType').value;
+
+                container.innerHTML = '';
+                this.selectedWeeks.clear();
+
+                // Generar las semanas basadas en el tipo de búsqueda
+                for (let i = 1; i <= this.totalWeeksToGenerate; i++) {
+                    const btn = document.createElement('div');
+                    btn.className = 'week-btn';
+                    btn.textContent = `Sem ${i}`;
+                    btn.dataset.week = i;
+
+                    // Seleccionar todas las semanas por defecto
+                    btn.classList.add('selected');
+                    this.selectedWeeks.add(i);
+
+                    btn.addEventListener('click', () => this.toggleWeek(btn, i));
+                    container.appendChild(btn);
+                }
+
+                // Actualizar la descripción
+                this.updateWeekDescription();
+            }
+
+            toggleWeek(btn, weekNum) {
+                if (btn.classList.contains('selected')) {
+                    btn.classList.remove('selected');
+                    this.selectedWeeks.delete(weekNum);
+                } else {
+                    btn.classList.add('selected');
+                    this.selectedWeeks.add(weekNum);
+                }
+                this.updateWeekDescription();
+            }
+
+            updateWeekDescription() {
+                const searchType = document.getElementById('searchType').value;
+                const selectedArray = Array.from(this.selectedWeeks).sort((a, b) => a - b);
+
+                if (selectedArray.length === 0) {
+                    return;
+                }
+
+                let description = '';
+                if (searchType === 'specificMonth') {
+                    const month = document.getElementById('month').value;
+                    const year = document.getElementById('year').value;
+                    if (month && year) {
+                        const monthNames = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+                            'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+                        description = `Semanas ${selectedArray.join(', ')} de ${monthNames[parseInt(month)]} ${year}`;
+                    }
+                } else {
+                    description = `Próximas semanas: ${selectedArray.join(', ')}`;
+                }
+
+                // Puedes agregar este texto en algún lugar si lo necesitas
+            }
+
+
+            initializeMenoresListeners() {
+                const numMenoresInput = document.getElementById('numMenores');
+                const edadesContainer = document.getElementById('edadesMenoresContainer');
+                const edadesInputsDiv = document.getElementById('edadesMenoresInputs');
+
+                // Evento cuando cambia el número de menores
+                numMenoresInput.addEventListener('change', (e) => {
+                    this.numMenores = parseInt(e.target.value);
+
+                    if (this.numMenores > 0) {
+                        // Mostrar contenedor de edades
+                        edadesContainer.style.display = 'block';
+
+                        // Limpiar inputs anteriores
+                        edadesInputsDiv.innerHTML = '';
+                        this.edadesMenores = [];
+
+                        // Crear un input por cada menor
+                        for (let i = 1; i <= this.numMenores; i++) {
+                            const div = document.createElement('div');
+                            div.className = 'form-group';
+                            div.style.marginBottom = '10px';
+
+                            div.innerHTML = `
+                    <label for="edadMenor${i}">Edad del menor ${i}:</label>
+                    <input type="number" id="edadMenor${i}" 
+                           class="edad-menor-input"
+                           min="0" max="17" value="12" 
+                           data-menor-index="${i - 1}"
+                           required>
+                `;
+
+                            edadesInputsDiv.appendChild(div);
+                            this.edadesMenores.push(12); // Valor predeterminado
+                        }
+
+                        // Agregar listeners a los inputs de edad
+                        document.querySelectorAll('.edad-menor-input').forEach(input => {
+                            input.addEventListener('change', (e) => {
+                                const index = parseInt(e.target.dataset.menorIndex);
+                                const edad = parseInt(e.target.value);
+
+                                // Validar rango
+                                if (edad < 0) e.target.value = 0;
+                                if (edad > 17) e.target.value = 17;
+
+                                this.edadesMenores[index] = parseInt(e.target.value);
+                            });
+                        });
+
+                    } else {
+                        // Ocultar contenedor si no hay menores
+                        edadesContainer.style.display = 'none';
+                        this.edadesMenores = [];
+                    }
+                });
+
+                // Inicializar con valor predeterminado
+                numMenoresInput.dispatchEvent(new Event('change'));
+            }
+
+            async handleSearch() {
+                if (this.searchInProgress) return;
+
+                const formData = this.collectFormData();
+
+                if (!this.validateFormData(formData)) {
+                    return;
+                }
+
+                this.searchInProgress = true;
+
+                try {
+                    this.hideStatus();
+                    this.hideResults();
+
+                    this.prepareProgressTracker(formData);
+                    this.showLoading();
+                    this.startProgressTicker();
+
+                    // Obtener token de autenticación
+                    const token = sessionStorage.getItem('token') || localStorage.getItem('token') || '';
+
+                    const response = await fetch('/api/promo-finder/search', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(formData)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Error ' + response.status + ': ' + response.statusText);
+                    }
+
+                    const result = await response.json();
+
+                    this.completeProgress('Busqueda completada', 'Procesando resultados finales');
+
+                    setTimeout(() => {
+                        this.hideLoading();
+                        this.showResults(result);
+                    }, 600);
+
+                } catch (error) {
+                    console.error('Error en busqueda:', error);
+                    this.hideLoading();
+                    this.showStatus('error', 'Error: ' + error.message);
+                } finally {
+                    this.searchInProgress = false;
+                }
+            }
+
+            collectFormData() {
+                const searchType = document.getElementById('searchType').value;
+                const destinos = Array.from(document.querySelectorAll('input[name="destinos"]:checked'))
+                    .map(cb => cb.value);
+
+                const data = {
+                    searchType,
+                    destinos,
+                    maxPromociones: parseInt(document.getElementById('maxPromociones').value),
+                    maxOpcionesBaratas: parseInt(document.getElementById('maxOpcionesBaratas').value),
+                    totalWeeks: this.totalWeeksToGenerate,
+                    selectedWeeks: Array.from(this.selectedWeeks),
+
+                    // NUEVO: Agregar configuración de pasajeros
+                    adultos: parseInt(document.getElementById('numAdultos').value),
+                    menores: {
+                        cantidad: this.numMenores,
+                        edades: this.edadesMenores
+                    }
+                };
+
+                if (searchType === 'specificMonth') {
+                    data.mes = parseInt(document.getElementById('month').value);
+                    data.anio = parseInt(document.getElementById('year').value);
+                }
+
+                return data;
+            }
+
+            validateFormData(data) {
+                if (data.destinos.length === 0) {
+                    this.showStatus('error', 'Debes seleccionar al menos un destino');
+                    return false;
+                }
+
+                if (data.selectedWeeks.length === 0) {
+                    this.showStatus('error', 'Debes seleccionar al menos una semana');
+                    return false;
+                }
+
+                if (data.searchType === 'specificMonth' && (!data.mes || !data.anio)) {
+                    this.showStatus('error', 'Debes seleccionar mes y año para búsqueda específica');
+                    return false;
+                }
+
+                return true;
+            }
+
+            prepareProgressTracker(formData) {
+                const destinosCount = Math.max((formData.destinos && formData.destinos.length) || 0, 1);
+                const weekCount = Math.max((formData.selectedWeeks && formData.selectedWeeks.length) || 0, 1);
+                const phases = formData.menores && formData.menores.cantidad > 0 ? 2 : 1;
+                const operations = Math.max(destinosCount * weekCount * phases, 1);
+                const perOperationMs = phases > 1 ? 38000 : 28000;
+                const overheadMs = 12000;
+                const totalMs = Math.max(22000, overheadMs + operations * perOperationMs);
+                const capPercent = phases > 1 ? 97 : 96;
+
+                const destinationsLabel = formData.destinos && formData.destinos.length > 0
+                    ? formData.destinos.slice(0, 3).join(', ') + (formData.destinos.length > 3 ? '...' : '')
+                    : destinosCount + ' destinos';
+                const weeksLabel = formData.selectedWeeks && formData.selectedWeeks.length > 0
+                    ? formData.selectedWeeks.join(', ')
+                    : weekCount + ' semanas';
+
+                const stages = [
+                    { threshold: 15, status: 'Preparando busqueda...', details: 'Validando parametros seleccionados' },
+                    { threshold: 35, status: 'Generando fechas y filtros', details: 'Semanas a cotizar: ' + weeksLabel }
+                ];
+
+                if (phases > 1) {
+                    stages.push({ threshold: 60, status: 'Cotizando solo adultos', details: 'Analizando ' + (destinosCount * weekCount) + ' combinaciones base' });
+                    stages.push({ threshold: 80, status: 'Cotizando con menores', details: 'Integrando tarifas con menores' });
+                } else {
+                    stages.push({ threshold: 70, status: 'Cotizando destinos seleccionados', details: 'Destinos: ' + destinationsLabel });
+                }
+
+                stages.push({ threshold: capPercent, status: 'Generando reporte final', details: 'Ordenando mejores promociones' });
+
+                this.progressConfig = {
+                    destinosCount,
+                    weekCount,
+                    phases,
+                    operations,
+                    perOperationMs,
+                    totalMs,
+                    capPercent,
+                    stages,
+                    startTime: Date.now(),
+                    totalLabel: this.formatDuration(totalMs),
+                    destinationsLabel,
+                    weeksLabel
+                };
+
+                this.lastProgressPercent = 0;
+            }
+
+            getProgressStage(percent) {
+                if (!this.progressConfig || !Array.isArray(this.progressConfig.stages) || this.progressConfig.stages.length === 0) {
+                    return { status: 'Procesando busqueda...', details: '' };
+                }
+
+                for (const stage of this.progressConfig.stages) {
+                    if (percent < stage.threshold) {
+                        return stage;
+                    }
+                }
+
+                return this.progressConfig.stages[this.progressConfig.stages.length - 1];
+            }
+
+            startProgressTicker() {
+                if (!this.progressConfig) {
+                    return;
+                }
+
+                this.stopProgressTicker();
+                this.progressConfig.startTime = Date.now();
+                this.refreshProgressStatus(true);
+                this.progressInterval = setInterval(() => this.refreshProgressStatus(false), 500);
+            }
+
+            stopProgressTicker(reset = false) {
+                if (this.progressInterval) {
+                    clearInterval(this.progressInterval);
+                    this.progressInterval = null;
+                }
+
+                if (reset) {
+                    this.progressConfig = null;
+                    this.lastProgressPercent = 0;
+                }
+            }
+
+            refreshProgressStatus(force = false) {
+                if (!this.progressConfig) {
+                    return;
+                }
+
+                const now = Date.now();
+                const elapsed = now - this.progressConfig.startTime;
+                const total = this.progressConfig.totalMs || 1;
+
+                let percent = (elapsed / total) * 100;
+                const cap = this.progressConfig.capPercent || 96;
+
+                if (force && percent < 1) {
+                    percent = 1;
+                }
+
+                const maxAllowed = force ? cap - 1 : cap - 0.2;
+                if (percent > maxAllowed) {
+                    percent = maxAllowed;
+                }
+
+                if (percent < this.lastProgressPercent) {
+                    percent = this.lastProgressPercent + 0.2;
+                }
+
+                percent = Math.min(percent, cap);
+                percent = Math.max(percent, 1);
+
+                const stage = this.getProgressStage(percent);
+                const eta = Math.max(total - elapsed, 0);
+
+                this.updateProgress(percent, stage.status, stage.details, eta, elapsed);
+            }
+
+            completeProgress(status, details) {
+                const elapsed = this.progressConfig ? Date.now() - this.progressConfig.startTime : 0;
+                this.stopProgressTicker();
+                this.updateProgress(100, status, details, 0, elapsed);
+                this.progressConfig = null;
+            }
+
+            formatDuration(ms, options = {}) {
+                if (ms == null || !Number.isFinite(ms) || ms <= 0) {
+                    return '00:00';
+                }
+
+                const roundType = options.round === 'floor' ? Math.floor : Math.ceil;
+                let totalSeconds = roundType(ms / 1000);
+
+                if (totalSeconds < 0) {
+                    totalSeconds = 0;
+                }
+
+                const minutes = Math.floor(totalSeconds / 60);
+                const seconds = totalSeconds % 60;
+
+                return String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+            }
+
+            showLoading() {
+                document.getElementById('loadingOverlay').style.display = 'flex';
+                document.getElementById('searchBtn').disabled = true;
+                this.currentProgress = 0;
+                this.lastProgressPercent = 0;
+
+                const percentEl = document.getElementById('progressPercent');
+                const etaEl = document.getElementById('progressEta');
+                const elapsedEl = document.getElementById('progressElapsed');
+                const totalEl = document.getElementById('progressTotal');
+                const fillEl = document.getElementById('progressFill');
+
+                if (fillEl) {
+                    fillEl.style.width = '0%';
+                }
+
+                if (percentEl) {
+                    percentEl.textContent = '0%';
+                }
+
+                if (elapsedEl) {
+                    elapsedEl.textContent = 'Tiempo transcurrido: 00:00';
+                }
+
+                if (this.progressConfig && this.progressConfig.totalLabel) {
+                    if (totalEl) {
+                        totalEl.textContent = 'Tiempo estimado total: ' + this.progressConfig.totalLabel;
+                    }
+                    if (etaEl) {
+                        etaEl.textContent = 'Tiempo estimado restante: ' + this.progressConfig.totalLabel;
+                    }
+                } else {
+                    if (totalEl) {
+                        totalEl.textContent = 'Tiempo estimado total: --:--';
+                    }
+                    if (etaEl) {
+                        etaEl.textContent = 'Tiempo estimado restante: --:--';
+                    }
+                }
+
+                document.getElementById('loadingStatus').textContent = 'Preparando busqueda...';
+                document.getElementById('loadingDetails').textContent = 'Analizando parametros seleccionados';
+            }
+
+            hideLoading() {
+                document.getElementById('loadingOverlay').style.display = 'none';
+                document.getElementById('searchBtn').disabled = false;
+                this.stopProgressTicker(true);
+            }
+
+            updateProgress(percent, status, details, etaMs = null, elapsedMs = null) {
+                const boundedPercent = Math.max(0, Math.min(percent, 100));
+                const progressFill = document.getElementById('progressFill');
+                if (progressFill) {
+                    progressFill.style.width = boundedPercent + '%';
+                }
+
+                this.lastProgressPercent = Math.max(this.lastProgressPercent, boundedPercent);
+
+                const percentEl = document.getElementById('progressPercent');
+                if (percentEl) {
+                    percentEl.textContent = Math.round(boundedPercent) + '%';
+                }
+
+                if (status !== undefined) {
+                    document.getElementById('loadingStatus').textContent = status;
+                }
+
+                if (details !== undefined) {
+                    document.getElementById('loadingDetails').textContent = details;
+                }
+
+                if (etaMs !== null) {
+                    const etaEl = document.getElementById('progressEta');
+                    if (etaEl) {
+                        const etaLabel = etaMs <= 0 ? '00:00' : this.formatDuration(etaMs);
+                        etaEl.textContent = 'Tiempo estimado restante: ' + etaLabel;
+                    }
+                }
+
+                if (elapsedMs !== null) {
+                    const elapsedEl = document.getElementById('progressElapsed');
+                    if (elapsedEl) {
+                        elapsedEl.textContent = 'Tiempo transcurrido: ' + this.formatDuration(elapsedMs, { round: 'floor' });
+                    }
+                }
+            }
+
+            showStatus(type, message) {
+                const statusElement = document.getElementById('statusMessage');
+                statusElement.className = `status-message status-${type}`;
+                statusElement.textContent = message;
+                statusElement.style.display = 'block';
+            }
+
+            hideStatus() {
+                document.getElementById('statusMessage').style.display = 'none';
+            }
+
+            showResults(result) {
+                const resultsSection = document.getElementById('resultsSection');
+                const resultsStats = document.getElementById('resultsStats');
+                const resultsContent = document.getElementById('resultsContent');
+
+                if (result.exito) {
+                    resultsStats.textContent = `🎯 ${result.promociones} promociones y ${result.opcionesBaratas} opciones baratas encontradas en ${result.tiempoEjecucion} segundos`;
+                    resultsContent.textContent = result.reporte;
+
+                    this.showStatus('success',
+                        `Búsqueda completada exitosamente. Archivo guardado: ${result.archivo}`);
+                } else {
+                    resultsStats.textContent = 'Error en la búsqueda';
+                    resultsContent.textContent = result.error || 'Error desconocido';
+
+                    this.showStatus('error', 'Error en la búsqueda. Ver detalles abajo.');
+                }
+
+                resultsSection.style.display = 'block';
+                resultsSection.scrollIntoView({ behavior: 'smooth' });
+            }
+
+            hideResults() {
+                document.getElementById('resultsSection').style.display = 'none';
+            }
+        }
+
+        // Inicializar la aplicación cuando se carga la página
+        document.addEventListener('DOMContentLoaded', () => {
+            new PromoFinderUI();
+        });
+    </script>
+</body>
+
+</html>

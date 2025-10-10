@@ -1578,6 +1578,174 @@ app.post('/api/promos/analyze', authenticateToken, async (req, res) => {
   }
 });
 
+// ========== PROMO FINDER API ==========
+// Endpoint para ejecutar el promo-finder desde la interfaz
+app.post('/api/promo-finder/search', authenticateToken, async (req, res) => {
+  try {
+    console.log('🔍 Nueva búsqueda de PromoFinder recibida');
+    console.log('Datos recibidos:', JSON.stringify(req.body, null, 2));
+
+    const {
+      searchType,
+      mes,
+      anio,
+      destinos,
+      maxPromociones,
+      maxOpcionesBaratas,
+      totalWeeks,
+      selectedWeeks,
+      adultos,
+      menores
+    } = req.body;
+
+    // Validaciones básicas
+    if (!destinos || destinos.length === 0) {
+      return res.status(400).json({
+        exito: false,
+        error: 'Debe seleccionar al menos un destino'
+      });
+    }
+
+    if (!selectedWeeks || selectedWeeks.length === 0) {
+      return res.status(400).json({
+        exito: false,
+        error: 'Debe seleccionar al menos una semana'
+      });
+    }
+
+    if (searchType === 'specificMonth' && (!mes || !anio)) {
+      return res.status(400).json({
+        exito: false,
+        error: 'Para búsqueda específica debe proporcionar mes y año'
+      });
+    }
+
+    // Cargar el módulo de promo-finder
+    const {
+      generarFechasJuevesADomingo,
+      buscarEnDestinoYFechasLimitado,
+      generarReporteFormateadoMejorado,
+      guardarReporte,
+      CONFIG_PROMOCIONES,
+      validarOpcionesEntrada,
+      validarConfiguracionPasajeros,
+      log
+    } = require('./scraper/promo-finder');
+
+    // Preparar configuración de pasajeros
+    const configPasajeros = adultos || menores ?
+      validarConfiguracionPasajeros({
+        adultos: adultos,
+        menores: menores
+      }) :
+      {
+        adultos: CONFIG_PROMOCIONES.adultosPredeterminados,
+        menores: CONFIG_PROMOCIONES.menoresPredeterminados
+      };
+
+    log('info', `👥 Configuración de pasajeros: ${configPasajeros.adultos} adultos + ${configPasajeros.menores.cantidad} menor(es)${configPasajeros.menores.cantidad > 0 ? ` (${configPasajeros.menores.edades.join(', ')} años)` : ''}`);
+
+    const limitesConfig = {
+      maxPromociones: maxPromociones || 5,
+      maxOpcionesBaratas: maxOpcionesBaratas || 5
+    };
+
+    const opcionesFecha = {
+      semanas: totalWeeks || 4,
+      mes: searchType === 'specificMonth' ? mes : undefined,
+      anio: searchType === 'specificMonth' ? anio : undefined
+    };
+
+    // Generar fechas
+    const todasLasFechas = generarFechasJuevesADomingo(opcionesFecha);
+
+    // Filtrar semanas seleccionadas
+    const semanasNumeros = selectedWeeks.map(s => parseInt(s));
+    const fechasSeleccionadas = todasLasFechas.filter(fecha => semanasNumeros.includes(fecha.semana));
+
+    if (fechasSeleccionadas.length === 0) {
+      return res.status(400).json({
+        exito: false,
+        error: 'No hay fechas válidas con las semanas seleccionadas'
+      });
+    }
+
+    log('info', `📊 Cotizando ${fechasSeleccionadas.length} semanas en ${destinos.length} destinos`);
+
+    // Procesar búsqueda
+    const todasLasPromociones = [];
+    const todasLasOpcionesBaratas = [];
+    let totalPromocionesEncontradas = 0;
+    let totalOpcionesBaratasEncontradas = 0;
+    let erroresEncontrados = 0;
+
+    for (const destino of destinos) {
+      log('info', `===== PROCESANDO DESTINO: ${destino.toUpperCase()} =====`);
+
+      for (const fechas of fechasSeleccionadas) {
+        try {
+          const resultado = await buscarEnDestinoYFechasLimitado(
+            destino,
+            fechas,
+            limitesConfig,
+            configPasajeros
+          );
+
+          if (!resultado.sinResultados) {
+            todasLasPromociones.push(...resultado.promociones);
+            todasLasOpcionesBaratas.push(...resultado.opcionesBaratas);
+            totalPromocionesEncontradas += resultado.totalPromociones || 0;
+            totalOpcionesBaratasEncontradas += resultado.totalOpcionesBaratas || 0;
+          } else {
+            erroresEncontrados++;
+          }
+        } catch (error) {
+          erroresEncontrados++;
+          log('error', `Error en ${destino} - ${fechas.descripcionCorta}: ${error.message}`);
+        }
+      }
+    }
+
+    // Generar reporte
+    const reporte = generarReporteFormateadoMejorado(
+      todasLasPromociones,
+      todasLasOpcionesBaratas,
+      fechasSeleccionadas[0],
+      configPasajeros,
+      {
+        totalPromociones: totalPromocionesEncontradas,
+        totalOpcionesBaratas: totalOpcionesBaratasEncontradas
+      }
+    );
+
+    const rutaArchivo = guardarReporte(reporte, opcionesFecha);
+    const tiempoTotal = Math.round((Date.now()) / 1000);
+
+    log('exito', '✅ Búsqueda completada exitosamente');
+
+    res.json({
+      exito: true,
+      promociones: todasLasPromociones.length,
+      opcionesBaratas: todasLasOpcionesBaratas.length,
+      totalPromociones: totalPromocionesEncontradas,
+      totalOpcionesBaratas: totalOpcionesBaratasEncontradas,
+      errores: erroresEncontrados,
+      archivo: rutaArchivo,
+      reporte: reporte,
+      tiempoEjecucion: tiempoTotal,
+      configuracionPasajeros: configPasajeros
+    });
+
+  } catch (error) {
+    console.error('❌ Error en PromoFinder:', error);
+    res.status(500).json({
+      exito: false,
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
 // Página de Hotelpedia (SPA)
 app.get('/hotelpedia', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'hotelpedia.html'));
@@ -1691,10 +1859,10 @@ app.get('/messages/:phoneNumber', authenticateToken, async (req, res) => {
 app.get('/notes/:phoneNumber', authenticateToken, async (req, res) => {
   try {
     const query = `
-      SELECT id, numero_telefono, nota, fecha_creacion, usuario_id, nombre_usuario
-      FROM notas_internas 
-      WHERE numero_telefono = $1 
-      ORDER BY fecha_creacion DESC;
+      SELECT id, numero_telefono, nota, created_at as fecha_creacion, usuario_id, nombre_usuario
+      FROM notas_internas
+      WHERE numero_telefono = $1
+      ORDER BY created_at DESC;
     `;
     const result = await ejecutarConReintento(query, [req.params.phoneNumber]);
     res.json(result.rows);
@@ -1945,7 +2113,7 @@ app.post('/guardar-nota', authenticateToken, async (req, res) => {
         .json({ success: false, message: 'Número de teléfono y nota son requeridos' });
     }
     const query = `
-      INSERT INTO notas_internas (numero_telefono, nota, fecha_creacion, usuario_id, nombre_usuario)
+      INSERT INTO notas_internas (numero_telefono, nota, created_at, usuario_id, nombre_usuario)
       VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4)
       RETURNING *;
     `;
@@ -2490,9 +2658,9 @@ app.get('/contacts', authenticateToken, async (req, res) => {
     const offset = parseInt(req.query.offset) || 0;
 
     const query = `
-      SELECT id, numero_telefono, nombre, email, fecha_creacion
+      SELECT id, numero_telefono, nombre, email, whatsapp, created_at as fecha_creacion
       FROM contactos
-      ORDER BY nombre ASC, numero_telefono ASC
+      ORDER BY nombre ASC NULLS LAST, numero_telefono ASC
       LIMIT $1 OFFSET $2;
     `;
 
