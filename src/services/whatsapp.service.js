@@ -37,6 +37,7 @@ class WhatsAppService {
     this.ready = false;
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 5;
+    this.initializing = false;
 
     this.AUTH_FOLDER = process.env.AUTH_FOLDER || 'auth_info_baileys';
     this.logger = pino({ level: 'silent' });
@@ -71,6 +72,13 @@ class WhatsAppService {
   // -----------------------------------------------------------
   async initialize() {
     try {
+      // Evitar inicializaciones múltiples simultáneas
+      if (this.initializing) {
+        console.log('⚠️ Ya hay una inicialización en curso, omitiendo...');
+        return;
+      }
+
+      this.initializing = true;
       console.log('Iniciando servicio de WhatsApp...');
 
       // En producción, limpiar sesión corrupta automáticamente
@@ -137,10 +145,11 @@ class WhatsAppService {
         }
 
         if (connection === 'close') {
+          this.ready = false;
           const statusCode = lastDisconnect?.error?.output?.statusCode;
+
           if (statusCode === DisconnectReason.loggedOut) {
             console.log('⚠️ Sesión cerrada (logged out). Limpiando credenciales...');
-            this.ready = false;
             // Limpiar credenciales corruptas
             const fs = require('fs');
             const path = require('path');
@@ -156,18 +165,22 @@ class WhatsAppService {
             // Reintentar una vez con sesión limpia
             if (this.reconnectAttempts === 0) {
               this.reconnectAttempts++;
-              await new Promise((res) => setTimeout(res, 2000));
-              await this.initialize();
+              setTimeout(() => this.initialize(), 2000);
+            } else {
+              console.log('⚠️ Ya se intentó reconectar después de logout. Se requiere escanear QR nuevamente.');
             }
             return;
           }
+
+          // Para otros errores de desconexión
           if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectAttempts++;
-            console.log(`Intento de reconexión ${this.reconnectAttempts}...`);
-            await new Promise((res) => setTimeout(res, Math.min(5000 * this.reconnectAttempts, 30000)));
-            await this.initialize();
+            console.log(`Intento de reconexión ${this.reconnectAttempts}/${this.maxReconnectAttempts}...`);
+            const delay = Math.min(5000 * this.reconnectAttempts, 30000);
+            setTimeout(() => this.initialize(), delay);
           } else {
-            console.log('Máximo de intentos alcanzado. Reinicio manual requerido.');
+            console.log(`❌ Máximo de intentos de reconexión alcanzado (${this.maxReconnectAttempts}). Se requiere escanear QR nuevamente.`);
+            this.reconnectAttempts = 0; // Resetear para permitir nueva conexión
           }
         }
 
@@ -323,10 +336,12 @@ class WhatsAppService {
 
       this.sock.ev.on('creds.update', saveCreds);
       console.log('Servicio de WhatsApp inicializado correctamente');
+      this.initializing = false;
       return true;
 
     } catch (error) {
       console.error('Error al inicializar WhatsApp:', error);
+      this.initializing = false;
       return false;
     }
   }

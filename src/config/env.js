@@ -34,8 +34,8 @@ const config = {
   },
 
   openai: {
-    apiKey: process.env.OPENAI_API_KEY || '',
-    organization: process.env.OPENAI_ORGANIZATION || ''
+    apiKey: (process.env.OPENAI_API_KEY || '').trim(),
+    organization: (process.env.OPENAI_ORGANIZATION || '').trim()
   },
 
   gmail: {
