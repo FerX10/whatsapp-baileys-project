@@ -116,12 +116,86 @@
                         </h3>
                         <div class="grid gap-4 md:grid-cols-2">
                             <div>
-                                <label class="mb-1 block text-sm font-medium text-gray-700">Cliente *</label>
-                                <select id="contacto_id" required class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-                                    <option value="">Cargando clientes...</option>
-                                </select>
+                                <label class="mb-1 block text-sm font-medium text-gray-700">
+                                    <i class="fas fa-user-circle mr-1 text-blue-600"></i>
+                                    Cliente *
+                                </label>
+                                <div class="relative">
+                                    <div class="relative">
+                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                                            <i class="fas fa-search"></i>
+                                        </span>
+                                        <input
+                                            type="text"
+                                            id="contacto_search"
+                                            placeholder="Escribe para buscar cliente por nombre o WhatsApp..."
+                                            required
+                                            class="w-full rounded-lg border-2 border-blue-300 pl-10 pr-4 py-2.5 text-base font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white shadow-sm"
+                                            autocomplete="off">
+                                    </div>
+                                    <input type="hidden" id="contacto_id" required>
+
+                                    <!-- Dropdown personalizado -->
+                                    <div id="contactos_dropdown" class="absolute z-50 w-full mt-1 bg-white border-2 border-blue-300 rounded-lg shadow-lg max-h-80 overflow-hidden hidden">
+                                        <!-- Header con contador -->
+                                        <div class="bg-blue-50 px-4 py-2 border-b border-blue-200 sticky top-0">
+                                            <div class="flex items-center justify-between text-sm">
+                                                <span class="font-medium text-blue-800">
+                                                    <i class="fas fa-users mr-1"></i>
+                                                    <span id="contactos_count">0 clientes</span>
+                                                </span>
+                                                <span class="text-xs text-blue-600">
+                                                    <i class="fas fa-info-circle mr-1"></i>
+                                                    Escribe para filtrar
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Lista de contactos scrolleable -->
+                                        <div id="contactos_list" class="py-1 overflow-y-auto" style="max-height: 300px;"></div>
+
+                                        <!-- Sin resultados -->
+                                        <div id="no_results" class="hidden px-4 py-8 text-center">
+                                            <i class="fas fa-search text-gray-300 text-3xl mb-2"></i>
+                                            <p class="text-sm text-gray-500">No se encontraron clientes</p>
+                                            <p class="text-xs text-gray-400 mt-1">Intenta con otro nombre o número</p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Indicador de cliente seleccionado -->
+                                    <div id="cliente_selected" class="mt-2 hidden rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 px-4 py-2.5 shadow-sm">
+                                        <div class="flex items-center gap-2">
+                                            <i class="fas fa-check-circle text-green-600 text-lg"></i>
+                                            <div class="flex-1">
+                                                <div class="font-semibold text-gray-800" id="cliente_nombre_display"></div>
+                                                <div class="text-sm text-gray-600 flex items-center gap-2 mt-0.5">
+                                                    <span><i class="fab fa-whatsapp text-green-600"></i> <span id="cliente_whatsapp_display"></span></span>
+                                                    <span id="cliente_email_display" class="hidden">• <i class="fas fa-envelope text-purple-600"></i> <span></span></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                            <div id="vendedor_container" style="display:none">
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-gray-700">
+                                    <i class="fas fa-envelope mr-1 text-purple-600"></i>
+                                    Email del Cliente (Opcional)
+                                </label>
+                                <input
+                                    type="email"
+                                    id="contacto_email"
+                                    placeholder="📧 ejemplo@correo.com"
+                                    class="w-full rounded-lg border-2 border-purple-300 px-4 py-2.5 text-base focus:border-purple-500 focus:ring-2 focus:ring-purple-200 bg-white shadow-sm"
+                                    autocomplete="off">
+                                <p class="mt-1 text-xs text-gray-500">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    Se auto-rellena si el cliente tiene email guardado
+                                </p>
+                            </div>
+                        </div>
+                        <div class="grid gap-4 md:grid-cols-2" id="vendedor_container" style="display:none">
+                            <div>
                                 <label class="mb-1 block text-sm font-medium text-gray-700">Vendedor Asignado</label>
                                 <select id="vendedor_id" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
                                     <option value="">Cargando vendedores...</option>
@@ -409,17 +483,134 @@
             renderizarPasajeros();
         }
 
+        // Variable global para almacenar los contactos
+        let clientesGlobal = [];
+
         async function cargarClientes() {
             try {
                 const res = await fetch('/contacts', { headers: authHeaders() });
                 const data = await res.json();
+                clientesGlobal = data.contacts || [];
 
-                const select = document.getElementById('contacto_id');
-                select.innerHTML = '<option value="">Seleccionar cliente...</option>' +
-                    (data.contacts || []).map(c => `<option value="${c.id}" data-telefono="${c.numero_telefono}">${c.nombre || c.numero_telefono}</option>`).join('');
+                // Setup del dropdown personalizado
+                setupClienteDropdown();
             } catch (err) {
                 console.error('Error cargando clientes:', err);
             }
+        }
+
+        function setupClienteDropdown() {
+            const searchInput = document.getElementById('contacto_search');
+            const dropdown = document.getElementById('contactos_dropdown');
+            const listContainer = document.getElementById('contactos_list');
+            const noResults = document.getElementById('no_results');
+            const hiddenInput = document.getElementById('contacto_id');
+
+            // Mostrar dropdown al hacer click en el input
+            searchInput.addEventListener('focus', () => {
+                renderClientesList('');
+                dropdown.classList.remove('hidden');
+            });
+
+            // Buscar mientras escribe
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                renderClientesList(query);
+                dropdown.classList.remove('hidden');
+            });
+
+            // Cerrar dropdown al hacer click fuera
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.classList.add('hidden');
+                }
+            });
+
+            function renderClientesList(query) {
+                const filteredClientes = clientesGlobal.filter(c => {
+                    const nombre = (c.nombre || '').toLowerCase();
+                    const whatsapp = (c.whatsapp || c.numero_telefono || '').toLowerCase();
+                    return nombre.includes(query) || whatsapp.includes(query);
+                });
+
+                // Actualizar contador
+                const countElement = document.getElementById('contactos_count');
+                const count = filteredClientes.length;
+                countElement.textContent = `${count} cliente${count !== 1 ? 's' : ''} ${query ? 'encontrado' + (count !== 1 ? 's' : '') : ''}`;
+
+                if (filteredClientes.length === 0) {
+                    listContainer.innerHTML = '';
+                    noResults.classList.remove('hidden');
+                    return;
+                }
+
+                noResults.classList.add('hidden');
+                listContainer.innerHTML = filteredClientes.map(c => {
+                    const nombre = c.nombre || 'Sin nombre';
+                    const whatsapp = c.whatsapp || c.numero_telefono || 'Sin WhatsApp';
+                    const email = c.email ? `<span class="text-purple-600 ml-2"><i class="fas fa-envelope text-xs"></i> ${c.email}</span>` : '';
+
+                    return `
+                        <div class="contacto-item px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0 transition-colors"
+                             data-id="${c.id}"
+                             data-nombre="${nombre}"
+                             data-whatsapp="${whatsapp}"
+                             data-email="${c.email || ''}">
+                            <div class="font-semibold text-gray-800">${nombre}</div>
+                            <div class="text-sm text-gray-600 flex items-center gap-1 mt-0.5">
+                                <i class="fab fa-whatsapp text-green-600"></i>
+                                <span>${whatsapp}</span>
+                                ${email}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                // Agregar event listeners a cada item
+                document.querySelectorAll('.contacto-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        const clienteId = item.dataset.id;
+                        const nombre = item.dataset.nombre;
+                        const whatsapp = item.dataset.whatsapp;
+                        const email = item.dataset.email;
+
+                        // Asignar valores
+                        hiddenInput.value = clienteId;
+                        searchInput.value = `${nombre} (${whatsapp})`;
+
+                        // Auto-rellenar email si existe
+                        const emailInput = document.getElementById('contacto_email');
+                        if (emailInput && email) {
+                            emailInput.value = email;
+                        }
+
+                        // Mostrar tarjeta de confirmación
+                        mostrarClienteSeleccionado(nombre, whatsapp, email);
+
+                        // Cerrar dropdown
+                        dropdown.classList.add('hidden');
+                    });
+                });
+            }
+        }
+
+        function mostrarClienteSeleccionado(nombre, whatsapp, email) {
+            const selectedDiv = document.getElementById('cliente_selected');
+            const nombreDisplay = document.getElementById('cliente_nombre_display');
+            const whatsappDisplay = document.getElementById('cliente_whatsapp_display');
+            const emailDisplay = document.getElementById('cliente_email_display');
+
+            nombreDisplay.textContent = nombre;
+            whatsappDisplay.textContent = whatsapp;
+
+            if (email) {
+                emailDisplay.classList.remove('hidden');
+                emailDisplay.querySelector('span').textContent = email;
+            } else {
+                emailDisplay.classList.add('hidden');
+            }
+
+            selectedDiv.classList.remove('hidden');
         }
 
         async function cargarProveedores() {
@@ -441,7 +632,7 @@
                 return;
             }
 
-            document.getElementById('vendedor_container').style.display = 'block';
+            document.getElementById('vendedor_container').style.display = 'grid';
 
             try {
                 const res = await fetch('/api/usuarios?activos=true', { headers: authHeaders() });
@@ -654,19 +845,22 @@
         // Botón auto-rellenar desde cotizaciones
         document.getElementById('btn_autorellenar')?.addEventListener('click', async () => {
             try {
-                const contactoSelect = document.getElementById('contacto_id');
-                const contactoOption = contactoSelect.options[contactoSelect.selectedIndex];
+                const hiddenInput = document.getElementById('contacto_id');
+                const clienteId = hiddenInput.value;
 
-                if (!contactoOption || !contactoOption.value) {
+                if (!clienteId) {
                     alert('Primero selecciona un cliente');
                     return;
                 }
 
-                const telefono = contactoOption.getAttribute('data-telefono');
-                if (!telefono) {
+                // Buscar el cliente en la lista global
+                const cliente = clientesGlobal.find(c => c.id == clienteId);
+                if (!cliente || !cliente.numero_telefono) {
                     alert('No se encontró el teléfono del cliente');
                     return;
                 }
+
+                const telefono = cliente.numero_telefono;
 
                 const res = await fetch(`/api/cotizaciones/${telefono}?limit=5`, {
                     headers: authHeaders()

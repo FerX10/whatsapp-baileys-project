@@ -28,6 +28,9 @@ const {
   checkIfBlocked
 } = require('../database/db');
 
+// Importar el adaptador de base de datos para Railway
+const { useDatabaseAuthState, clearDatabaseAuthState } = require('./database-auth-state');
+
 class WhatsAppService {
   constructor(io, openAIHandler) {
     this.io = io;
@@ -81,9 +84,22 @@ class WhatsAppService {
       this.initializing = true;
       console.log('Iniciando servicio de WhatsApp...');
 
-      // En producción, limpiar sesión corrupta automáticamente
+      // Detectar si estamos en Railway o producción
+      const isRailway = !!process.env.RAILWAY_ENVIRONMENT;
       const isProd = process.env.NODE_ENV === 'production';
-      if (isProd) {
+
+      let state, saveCreds;
+
+      if (isRailway || isProd) {
+        // ===== RAILWAY: Usar base de datos PostgreSQL =====
+        console.log('🚂 Railway detectado - Usando PostgreSQL para sesión');
+        const authState = await useDatabaseAuthState();
+        state = authState.state;
+        saveCreds = authState.saveCreds;
+      } else {
+        // ===== LOCAL: Usar archivos =====
+        console.log('💻 Entorno local - Usando archivos para sesión');
+
         const fs = require('fs');
         const path = require('path');
         const authPath = path.join(process.cwd(), this.AUTH_FOLDER);
@@ -105,9 +121,12 @@ class WhatsAppService {
             fs.rmSync(authPath, { recursive: true, force: true });
           }
         }
+
+        const authStateLocal = await useMultiFileAuthState(this.AUTH_FOLDER);
+        state = authStateLocal.state;
+        saveCreds = authStateLocal.saveCreds;
       }
 
-      const { state, saveCreds } = await useMultiFileAuthState(this.AUTH_FOLDER);
       const { version } = await fetchLatestBaileysVersion();
 
       this.sock = makeWASocket({

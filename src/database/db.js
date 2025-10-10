@@ -156,7 +156,7 @@ CREATE TABLE IF NOT EXISTS mensajes (
           id SERIAL PRIMARY KEY,
           numero_telefono VARCHAR(20) NOT NULL,
           nota TEXT NOT NULL,
-          fecha_creacion TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
           usuario_id INTEGER REFERENCES usuarios(id),
           nombre_usuario VARCHAR(50)
       );
@@ -186,12 +186,48 @@ ALTER TABLE IF EXISTS contactos
   ADD COLUMN IF NOT EXISTS razon_social VARCHAR(180),
   ADD COLUMN IF NOT EXISTS cp VARCHAR(10);
 
+-- Agregar created_at a contactos si no existe, usando fecha_actualizacion como default
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name = 'contactos' AND column_name = 'created_at') THEN
+    ALTER TABLE contactos ADD COLUMN created_at TIMESTAMPTZ DEFAULT now();
+    -- Copiar valores existentes de fecha_actualizacion a created_at
+    UPDATE contactos SET created_at = fecha_actualizacion WHERE created_at IS NULL;
+  END IF;
+END $$;
+
+-- Agregar campo whatsapp a contactos si no existe (copiar de numero_telefono)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name = 'contactos' AND column_name = 'whatsapp') THEN
+    ALTER TABLE contactos ADD COLUMN whatsapp VARCHAR(20);
+    -- Copiar valores existentes de numero_telefono a whatsapp
+    UPDATE contactos SET whatsapp = numero_telefono WHERE whatsapp IS NULL;
+  END IF;
+END $$;
+
 ALTER TABLE IF EXISTS proveedores
   ADD COLUMN IF NOT EXISTS rfc VARCHAR(20),
   ADD COLUMN IF NOT EXISTS razon_social VARCHAR(180),
   ADD COLUMN IF NOT EXISTS constancia_fiscal_url TEXT,
   ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now(),
   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+
+-- Migración: Renombrar fecha_creacion a created_at en notas_internas (si existe el nombre antiguo)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_name = 'notas_internas' AND column_name = 'fecha_creacion') THEN
+    ALTER TABLE notas_internas RENAME COLUMN fecha_creacion TO created_at;
+  END IF;
+  -- Agregar created_at si no existe (para bases de datos sin migración previa)
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name = 'notas_internas' AND column_name = 'created_at') THEN
+    ALTER TABLE notas_internas ADD COLUMN created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP;
+  END IF;
+END $$;
 
 
       -- Índices

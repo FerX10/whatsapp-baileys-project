@@ -164,13 +164,27 @@ app.get('/whatsapp-connection', (req, res) => {
 // POST /api/whatsapp/reset-session - Eliminar sesión de WhatsApp (solo gerentes)
 app.post('/api/whatsapp/reset-session', authenticateToken, requireManager, async (req, res) => {
   try {
-    const authFolder = process.env.AUTH_FOLDER || 'auth_info_baileys';
-    const authPath = path.join(__dirname, authFolder);
+    const isRailway = !!process.env.RAILWAY_ENVIRONMENT;
+    const isProd = process.env.NODE_ENV === 'production';
 
-    // Eliminar carpeta de autenticación
-    if (require('fs').existsSync(authPath)) {
-      await fsPromises.rm(authPath, { recursive: true, force: true });
-      console.log('✅ Sesión de WhatsApp eliminada');
+    if (isRailway || isProd) {
+      // ===== RAILWAY: Limpiar sesión de la base de datos =====
+      console.log('🚂 Railway - Limpiando sesión de PostgreSQL...');
+      const { clearDatabaseAuthState } = require('./src/services/database-auth-state');
+      const cleared = await clearDatabaseAuthState();
+      if (cleared) {
+        console.log('✅ Sesión de WhatsApp eliminada de la base de datos');
+      }
+    } else {
+      // ===== LOCAL: Eliminar carpeta de autenticación =====
+      console.log('💻 Local - Limpiando sesión de archivos...');
+      const authFolder = process.env.AUTH_FOLDER || 'auth_info_baileys';
+      const authPath = path.join(__dirname, authFolder);
+
+      if (require('fs').existsSync(authPath)) {
+        await fsPromises.rm(authPath, { recursive: true, force: true });
+        console.log('✅ Sesión de WhatsApp eliminada del sistema de archivos');
+      }
     }
 
     // Reiniciar servicio de WhatsApp completamente
@@ -192,7 +206,7 @@ app.post('/api/whatsapp/reset-session', authenticateToken, requireManager, async
 
     res.json({
       success: true,
-      message: 'Sesión eliminada. El servicio se está reiniciando...'
+      message: 'Sesión eliminada. El servicio se está reiniciando... Por favor escanea el código QR nuevamente.'
     });
   } catch (error) {
     console.error('Error al resetear sesión:', error);
